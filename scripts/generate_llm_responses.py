@@ -57,11 +57,24 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
             results = []
             start_index = 0
 
-    # Process remaining dilemmas
-    for idx in range(start_index, len(limited_dilemmas)):
+    # Process each dilemma index; retry entries with errors when resuming
+    total = len(limited_dilemmas)
+    for idx in range(0, total):
         item = limited_dilemmas[idx]
+
+        # Determine whether this index already has a saved entry
+        existing_entry = None
+        if idx < len(results):
+            existing_entry = results[idx]
+
+        # If existing entry is present and has no error, skip
+        if existing_entry and not existing_entry.get('error'):
+            print(f"    {idx+1}/{total}: {item.get('source', 'Unknown')} (already saved)")
+            continue
+
+        # Otherwise (new or errored), attempt to generate/retry until success or provider raises
         try:
-            print(f"    {idx+1}/{len(limited_dilemmas)}: {item.get('source', 'Unknown')}")
+            print(f"    {idx+1}/{total}: {item.get('source', 'Unknown')} (querying)")
             llm_decision = await provider.generate_response(item['question'])
 
             result = {
@@ -72,7 +85,14 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
             if 'author' in item:
                 result["author"] = item['author']
 
-            results.append(result)
+            # Replace existing entry or append
+            if existing_entry:
+                results[idx] = result
+            else:
+                # fill any gap (shouldn't happen) then append
+                while len(results) < idx:
+                    results.append({"source": "", "question": "", "llm_decision": {}, "error": "skipped gap"})
+                results.append(result)
 
             # Persist after each successful query (atomic write)
             tmp_path = output_path.with_suffix('.tmp')
@@ -80,7 +100,7 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
                 json.dump(results, f, indent=2, ensure_ascii=False)
             tmp_path.replace(output_path)
 
-            print(f"      Saved response {len(results)} to {output_path.name}")
+            print(f"      Saved response {idx+1} to {output_path.name}")
 
         except Exception as e:
             print(f"      Error: {e}")
@@ -92,9 +112,15 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
             }
             if 'author' in item:
                 result["author"] = item['author']
-            results.append(result)
 
-            # Persist error result as well to avoid re-querying
+            # Replace or append the error result and persist so we can retry later
+            if existing_entry:
+                results[idx] = result
+            else:
+                while len(results) < idx:
+                    results.append({"source": "", "question": "", "llm_decision": {}, "error": "skipped gap"})
+                results.append(result)
+
             try:
                 tmp_path = output_path.with_suffix('.tmp')
                 with open(tmp_path, 'w', encoding='utf-8') as f:
