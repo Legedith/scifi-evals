@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sci‑Fi Ethical Dilemmas Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header class="app-header">
+        <h1>Sci‑Fi Ethical Dilemmas Explorer</h1>
+        <p class="tagline">Browse dilemmas, filter by author, search by source, and inspect decisions.</p>
+    </header>
+
+    <main class="app-main">
+        <section class="controls" aria-label="Filters and actions">
+            <div class="controls-row">
+                <label for="authorFilter">Author</label>
+                <select id="authorFilter" aria-label="Filter by author">
+                    <option value="">All authors</option>
+                </select>
+
+                <label for="sourceSearch" class="search-label">Source</label>
+                <input id="sourceSearch" type="search" placeholder="Search source…" aria-label="Search by source">
+
+                <button id="resetBtn" class="secondary" type="button" aria-label="Reset filters">Reset</button>
+            </div>
+
+            <div class="controls-row right">
+                <span id="resultCount" class="muted">Loading…</span>
+                <div class="downloads">
+                    <a id="downloadQuestions" href="data/scifi-ethical-dilemmas.json" download class="button">Download
+                        questions JSON</a>
+                    <a id="downloadDecisions" href="data/scifi-ethical-dilemmas-with-decisions.json" download
+                        class="button primary">Download decisions JSON</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="list" id="itemsList" aria-live="polite" aria-busy="true"></div>
+            <aside class="detail" id="detailPanel" aria-live="polite">
+                <div class="empty">Select a dilemma to see details.</div>
+            </aside>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
