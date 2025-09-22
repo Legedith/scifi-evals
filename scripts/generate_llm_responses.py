@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from llm_providers import OpenRouterProvider, FREE_MODELS
+from dotenv import load_dotenv
 
 
 async def generate_responses_for_model(model_name: str, dilemmas: list, limit: int = 3):
@@ -31,6 +32,12 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
     else:
         limited_dilemmas = dilemmas
     print(f"  Generating {len(limited_dilemmas)} responses...")
+
+    # Query key info and infer safe RPM pacing
+    key_info = await provider.get_key_info()
+    rpm = provider.infer_rate_limit_rpm(key_info)
+    delay_between_requests = 60.0 / max(1, rpm)
+    print(f"  Inferred rate limit: {rpm} requests/min -> {delay_between_requests:.2f}s between requests")
 
     # Prepare output file and resume if partial results exist
     safe_filename = provider.get_safe_filename()

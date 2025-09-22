@@ -190,14 +190,25 @@ class OpenRouterProvider(LLMProvider):
             try:
                 resp = await client.post(url, headers=headers, json=json_data)
 
+                # Retry on server errors (5xx)
+                if resp.status_code >= 500:
+                    last_exception = Exception(f"Server error: {resp.status_code}")
+                    raise last_exception
+
                 # Handle rate limiting (429) by honoring Retry-After header when present
                 if resp.status_code == 429:
+                    if attempt == max_retries:
+                        # Last attempt, don't wait anymore
+                        resp.raise_for_status()
+                    
                     retry_after = resp.headers.get("Retry-After")
+                    wait_seconds = None
+                    
                     if retry_after:
                         # Retry-After can be seconds or HTTP-date
-                        wait_seconds = None
                         try:
                             wait_seconds = int(retry_after)
+                            print(f"        Rate limited. Retry-After: {wait_seconds} seconds")
                         except Exception:
                             try:
                                 dt = parsedate_to_datetime(retry_after)
@@ -206,20 +217,20 @@ class OpenRouterProvider(LLMProvider):
                                     dt = dt.replace(tzinfo=timezone.utc)
                                 now = datetime.now(timezone.utc)
                                 wait_seconds = max(0, (dt - now).total_seconds())
+                                print(f"        Rate limited. Retry-After date: {retry_after} (waiting {wait_seconds:.1f} seconds)")
                             except Exception:
                                 wait_seconds = None
-
-                        if wait_seconds is not None:
-                            await asyncio.sleep(wait_seconds)
-                            # then continue to retry
-                            last_exception = Exception("429 rate limited; waited Retry-After seconds")
-                            raise last_exception
-                    # No Retry-After header: fall through to exponential backoff
-
-                # Retry on server errors (5xx)
-                if resp.status_code >= 500:
-                    last_exception = Exception(f"Server error: {resp.status_code}")
-                    raise last_exception
+                                print(f"        Rate limited. Could not parse Retry-After: {retry_after}")
+                    
+                    if wait_seconds is not None and wait_seconds > 0:
+                        print(f"        Waiting {wait_seconds:.1f} seconds before retry {attempt+1}/{max_retries}...")
+                        await asyncio.sleep(wait_seconds)
+                        continue  # Retry immediately after waiting
+                    else:
+                        # No Retry-After header or invalid: fall through to exponential backoff
+                        print(f"        Rate limited. No valid Retry-After header, using exponential backoff")
+                        last_exception = Exception(f"429 rate limited (attempt {attempt})")
+                        raise last_exception
 
                 # For other status codes (200-499 excluding 429), return and let caller handle
                 return resp
@@ -229,7 +240,92 @@ class OpenRouterProvider(LLMProvider):
                     raise
                 # Exponential backoff with jitter
                 delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                print(f"        Request failed (attempt {attempt}/{max_retries}): {e}")
+                print(f"        Waiting {delay:.1f} seconds before retry...")
                 await asyncio.sleep(delay)
+        
+        # This should never be reached, but just in case
+        raise last_exception or Exception("All retry attempts failed")
+
+    async def _get_with_retries(self, client: httpx.AsyncClient, url: str, headers: dict) -> httpx.Response:
+        """GET with retries and exponential backoff for transient errors."""
+        max_retries = int(os.getenv("OPENROUTER_MAX_RETRIES", "3"))
+        base_delay = float(os.getenv("OPENROUTER_RETRY_BASE", "1.0"))
+
+        last_exception = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code >= 500:
+                    last_exception = Exception(f"Server error: {resp.status_code}")
+                    raise last_exception
+                if resp.status_code == 429:
+                    # Honor retry-after if provided
+                    retry_after = resp.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            wait_seconds = int(retry_after)
+                        except Exception:
+                            try:
+                                dt = parsedate_to_datetime(retry_after)
+                                if dt.tzinfo is None:
+                                    dt = dt.replace(tzinfo=timezone.utc)
+                                now = datetime.now(timezone.utc)
+                                wait_seconds = max(0, (dt - now).total_seconds())
+                            except Exception:
+                                wait_seconds = None
+                        if wait_seconds:
+                            print(f"        GET rate limited. Waiting {wait_seconds:.1f}s before retry")
+                            await asyncio.sleep(wait_seconds)
+                            continue
+                return resp
+            except (httpx.RequestError, Exception) as e:
+                last_exception = e
+                if attempt == max_retries:
+                    raise
+                delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                print(f"        GET request failed (attempt {attempt}/{max_retries}): {e}")
+                print(f"        Waiting {delay:.1f}s before retry")
+                await asyncio.sleep(delay)
+
+        raise last_exception or Exception("All GET retry attempts failed")
+
+    async def get_key_info(self) -> dict:
+        """Fetch API key info from OpenRouter (/key). Returns parsed JSON or {}."""
+        if not self.is_available():
+            return {}
+        url = f"{self.base_url}/key"
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                resp = await self._get_with_retries(client, url, headers=self.headers)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                print(f"      Warning: failed to fetch key info: {e}")
+                return {}
+
+    def infer_rate_limit_rpm(self, key_info: dict) -> int:
+        """Infer a safe requests-per-minute limit from key info or environment.
+        Priority: OPENROUTER_RATE_LIMIT_RPM env > key_info.data.rate_limit (if present) > default 20
+        """
+        env_val = os.getenv("OPENROUTER_RATE_LIMIT_RPM")
+        if env_val:
+            try:
+                return int(env_val)
+            except Exception:
+                pass
+
+        # Try to read rate limit from key info if available
+        try:
+            data = key_info.get('data', {}) if isinstance(key_info, dict) else {}
+            rate_limit = data.get('rate_limit') if isinstance(data, dict) else None
+            if isinstance(rate_limit, (int, float)) and rate_limit > 0:
+                return int(rate_limit)
+        except Exception:
+            pass
+
+        # Conservative default
+        return 20
     
     def _parse_text_response(self, text: str) -> Dict[str, Any]:
         """Parse structured text response into our format"""
