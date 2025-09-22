@@ -11,6 +11,8 @@ from typing import Dict, Any
 import httpx
 import asyncio
 import random
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 
@@ -187,10 +189,39 @@ class OpenRouterProvider(LLMProvider):
         for attempt in range(1, max_retries + 1):
             try:
                 resp = await client.post(url, headers=headers, json=json_data)
-                # Retry on server errors
+
+                # Handle rate limiting (429) by honoring Retry-After header when present
+                if resp.status_code == 429:
+                    retry_after = resp.headers.get("Retry-After")
+                    if retry_after:
+                        # Retry-After can be seconds or HTTP-date
+                        wait_seconds = None
+                        try:
+                            wait_seconds = int(retry_after)
+                        except Exception:
+                            try:
+                                dt = parsedate_to_datetime(retry_after)
+                                # parsedate_to_datetime may return naive or aware datetime
+                                if dt.tzinfo is None:
+                                    dt = dt.replace(tzinfo=timezone.utc)
+                                now = datetime.now(timezone.utc)
+                                wait_seconds = max(0, (dt - now).total_seconds())
+                            except Exception:
+                                wait_seconds = None
+
+                        if wait_seconds is not None:
+                            await asyncio.sleep(wait_seconds)
+                            # then continue to retry
+                            last_exception = Exception("429 rate limited; waited Retry-After seconds")
+                            raise last_exception
+                    # No Retry-After header: fall through to exponential backoff
+
+                # Retry on server errors (5xx)
                 if resp.status_code >= 500:
                     last_exception = Exception(f"Server error: {resp.status_code}")
                     raise last_exception
+
+                # For other status codes (200-499 excluding 429), return and let caller handle
                 return resp
             except (httpx.RequestError, Exception) as e:
                 last_exception = e
