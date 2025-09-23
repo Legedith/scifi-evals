@@ -1,9 +1,9 @@
 (function initializeApp() {
     // Available models configuration
     const MODELS = {
-        'gpt-4-decisions': {
-            name: 'GPT-4 Decisions (Short)',
-            file: '../data/enhanced/dilemmas_with_gpt4_decisions.json',
+        'gpt-5-decisions': {
+            name: 'GPT-5 Decisions (Short)',
+            file: '../data/enhanced/dilemmas_with_gpt5_decisions.json',
             provider: 'OpenAI',
             isDefault: true
         },
@@ -475,6 +475,11 @@
             await Promise.all(modelKeys.map(key => loadModelData(key)));
             compareModal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            // Auto-select the first dilemma by default
+            if (compareSelect.options.length > 1) {
+                compareSelect.selectedIndex = 1; // first real dilemma option
+                renderComparison(compareSelect.value);
+            }
         } catch (err) {
             alert('Failed to load comparison data: ' + err.message);
         } finally {
@@ -529,10 +534,39 @@
         author.textContent = `Author: ${dilemma.author || 'Unknown'}`;
         header.appendChild(author);
         
-        const question = document.createElement('div');
-        question.className = 'question';
-        question.textContent = dilemma.question || '';
-        header.appendChild(question);
+        // Dual questions: simplified (GPT-5 decisions) and enhanced (from enhanced dataset)
+        const questionWrap = document.createElement('div');
+        questionWrap.className = 'question-wrap';
+
+        const simplifiedQ = document.createElement('div');
+        simplifiedQ.className = 'question simplified';
+        simplifiedQ.innerHTML = '<strong>Simplified:</strong> ' + (dilemma.question || '');
+        questionWrap.appendChild(simplifiedQ);
+
+        // Try to pull enhanced version from enhanced_dilemmas.json if loaded/cached
+        // Fallback: show only simplified
+        const enhancedModelKey = 'gpt-5-nano'; // any full set model (687) shares same questions content; but enhanced text is in enhanced/enhanced_dilemmas.json
+        const enhancedText = (function() {
+            try {
+                // We don't have enhanced_dilemmas loaded in the app; infer from another model's question string if longer
+                const candidates = Object.keys(MODELS)
+                    .filter(k => k !== 'gpt-5-decisions')
+                    .map(k => (allModelData[k] && allModelData[k][index]) ? allModelData[k][index].question : null)
+                    .filter(Boolean);
+                if (candidates.length === 0) return null;
+                // Choose the longest question as the enhanced one
+                return candidates.sort((a,b)=> b.length - a.length)[0];
+            } catch (_) { return null; }
+        })();
+
+        if (enhancedText && enhancedText !== dilemma.question) {
+            const enhancedQ = document.createElement('div');
+            enhancedQ.className = 'question enhanced';
+            enhancedQ.innerHTML = '<strong>Enhanced:</strong> ' + enhancedText;
+            questionWrap.appendChild(enhancedQ);
+        }
+
+        header.appendChild(questionWrap);
         
         compareContent.appendChild(header);
 
