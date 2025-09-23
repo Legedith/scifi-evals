@@ -29,8 +29,8 @@ def transform_file(input_path: Path, output_path: Path) -> None:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    input_path = root / "scifi-ethical-dilemmas.json"
-    output_path = root / "scifi-ethical-dilemmas.formatted.json"
+    input_path = root / "data/source/original_dilemmas.json"
+    output_path = root / "data/source/formatted_dilemmas.json"
     transform_file(input_path, output_path)
     print(f"Wrote formatted JSON to: {output_path}")
 

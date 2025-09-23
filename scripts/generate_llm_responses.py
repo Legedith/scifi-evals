@@ -41,7 +41,7 @@ async def generate_responses_for_model(model_name: str, dilemmas: list, limit: i
 
     # Prepare output file and resume if partial results exist
     safe_filename = provider.get_safe_filename()
-    output_path = Path(f"{safe_filename}_responses.json")
+    output_path = Path(f"data/responses/{safe_filename}_responses.json")
     results = []
     start_index = 0
 
@@ -147,7 +147,7 @@ async def main():
     # Load environment variables from .env if present
     load_dotenv()
     # Load dilemmas
-    input_file = "scifi-ethical-dilemmas-enhanced.json"
+    input_file = "data/enhanced/enhanced_dilemmas.json"
     if not Path(input_file).exists():
         print(f"Error: {input_file} not found")
         return

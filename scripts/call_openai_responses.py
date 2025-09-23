@@ -51,8 +51,8 @@ def call_responses_api(client: openai.OpenAI, question: str, model: str = "gpt-5
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    in_path = root / "scifi-ethical-dilemmas-enhanced.json"
-    out_path = root / "gpt-5-nano_responses.json"
+    in_path = root / "data/enhanced/enhanced_dilemmas.json"
+    out_path = root / "data/responses/gpt-5-nano_responses.json"
 
     # Load environment variables from the repository .env (prefer local over system)
     env_path = root / ".env"

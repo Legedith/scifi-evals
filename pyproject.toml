@@ -1,7 +1,7 @@
 [project]
-name = "asimov"
+name = "scifi-evals"
 version = "0.1.0"
-description = "Add your description here"
+description = "Sci-Fi Ethical Dilemmas Evaluation System - A comprehensive system for evaluating how different LLMs respond to ethical dilemmas from classic science fiction literature"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

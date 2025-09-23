@@ -48,8 +48,8 @@ Please enhance this dilemma by enriching the context and stakes to make it more 
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    in_path = root / "scifi-ethical-dilemmas.formatted.json"
-    out_path = root / "scifi-ethical-dilemmas-enhanced.json"
+    in_path = root / "data/source/formatted_dilemmas.json"
+    out_path = root / "data/enhanced/enhanced_dilemmas.json"
 
     # Prefer the project's .env over any global environment variable.
     # If a key exists in the project's .env, it will override the existing env var.

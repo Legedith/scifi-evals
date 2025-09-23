@@ -17,6 +17,11 @@
     <main class="app-main">
         <section class="controls" aria-label="Filters and actions">
             <div class="controls-row">
+                <label for="modelSelect">Model</label>
+                <select id="modelSelect" aria-label="Select LLM model">
+                    <option value="">Select a model...</option>
+                </select>
+
                 <label for="authorFilter">Author</label>
                 <select id="authorFilter" aria-label="Filter by author">
                     <option value="">All authors</option>
@@ -26,25 +31,52 @@
                 <input id="sourceSearch" type="search" placeholder="Search source…" aria-label="Search by source">
 
                 <button id="resetBtn" class="secondary" type="button" aria-label="Reset filters">Reset</button>
+                <button id="compareBtn" class="primary" type="button" aria-label="Compare models">Compare Models</button>
             </div>
 
             <div class="controls-row right">
-                <span id="resultCount" class="muted">Loading…</span>
+                <span id="resultCount" class="muted">Select a model to begin...</span>
                 <div class="downloads">
-                    <a id="downloadQuestions" href="data/scifi-ethical-dilemmas.json" download class="button">Download
-                        questions JSON</a>
-                    <a id="downloadDecisions" href="data/scifi-ethical-dilemmas-with-decisions.json" download
-                        class="button primary">Download decisions JSON</a>
+                    <button id="downloadBtn" class="button" disabled>Download Current Model Data</button>
                 </div>
             </div>
         </section>
 
         <section class="content">
-            <div class="list" id="itemsList" aria-live="polite" aria-busy="true"></div>
+            <div class="list-container" id="listContainer">
+                <div class="list-header">
+                    <h3>Ethical Dilemmas</h3>
+                    <button id="toggleListBtn" class="toggle-btn" aria-label="Toggle dilemma list">
+                        <span class="toggle-icon">‹</span>
+                    </button>
+                </div>
+                <div class="list" id="itemsList" aria-live="polite" aria-busy="true"></div>
+            </div>
             <aside class="detail" id="detailPanel" aria-live="polite">
-                <div class="empty">Select a dilemma to see details.</div>
+                <div class="empty">Select a model and dilemma to see details.</div>
             </aside>
         </section>
+
+        <!-- Compare Modal -->
+        <div id="compareModal" class="modal fullscreen" style="display: none;">
+            <div class="modal-content fullscreen">
+                <div class="modal-header">
+                    <h2>Compare Models</h2>
+                    <div class="compare-controls">
+                        <label for="compareSelect">Select dilemma:</label>
+                        <select id="compareSelect">
+                            <option value="">Choose a dilemma...</option>
+                        </select>
+                    </div>
+                    <button id="closeModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="compareContent">
+                        <div class="empty">Select a dilemma to compare responses across models.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script src="app.js"></script>
