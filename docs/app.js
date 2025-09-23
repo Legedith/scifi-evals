@@ -123,21 +123,32 @@
         const model = MODELS[modelKey];
         if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
-        // Add a cache-busting query to avoid stale JSON on GitHub Pages
-        const url = `${model.file}${model.file.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        const basePath = model.file;
+        const candidatesSet = new Set([
+            basePath,
+            `./${basePath}`,
+            `docs/${basePath}`,
+            `../${basePath}`
+        ]);
+        const candidates = Array.from(candidatesSet);
 
-        let response = await fetch(url);
-        // Fallback: try with leading ./ in case of relative path resolution quirks
-        if (!response.ok) {
+        let lastError = null;
+        for (const candidate of candidates) {
+            const url = `${candidate}${candidate.includes('?') ? '&' : '?'}v=${Date.now()}`;
             try {
-                response = await fetch(`./${url}`);
-            } catch (_) {}
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    allModelData[modelKey] = Array.isArray(data) ? data : [];
+                    return allModelData[modelKey];
+                }
+                lastError = new Error(`HTTP ${response.status}`);
+            } catch (err) {
+                lastError = err;
+            }
         }
-        if (!response.ok) throw new Error(`Failed to load ${model.name} data`);
-        
-        const data = await response.json();
-        allModelData[modelKey] = Array.isArray(data) ? data : [];
-        return allModelData[modelKey];
+
+        throw new Error(`Failed to load ${model.name} data${lastError ? `: ${lastError.message}` : ''}`);
     }
 
     async function switchModel(modelKey) {
