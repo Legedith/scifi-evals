@@ -3,38 +3,38 @@
     const MODELS = {
         'gpt-5-decisions': {
             name: 'GPT-5 Decisions (Short)',
-            file: '../data/enhanced/dilemmas_with_gpt5_decisions.json',
+            file: 'data/enhanced/dilemmas_with_gpt5_decisions.json',
             provider: 'OpenAI',
             isDefault: true
         },
         'gpt-5-nano': {
             name: 'GPT-5 Nano',
-            file: '../data/responses/gpt-5-nano_responses.json',
+            file: 'data/responses/gpt-5-nano_responses.json',
             provider: 'OpenAI'
         },
         'grok-4-fast': {
             name: 'Grok 4 Fast',
-            file: '../data/responses/grok-4-fast_responses.json',
+            file: 'data/responses/grok-4-fast_responses.json',
             provider: 'xAI'
         },
         'gemma-3-27b': {
             name: 'Gemma 3 27B',
-            file: '../data/responses/gemma-3-27b_responses.json',
+            file: 'data/responses/gemma-3-27b_responses.json',
             provider: 'Google'
         },
         'nemotron-nano-9b': {
             name: 'Nemotron Nano 9B',
-            file: '../data/responses/nemotron-nano-9b_responses.json',
+            file: 'data/responses/nemotron-nano-9b_responses.json',
             provider: 'NVIDIA'
         },
         'deepseek-chat-v3.1': {
             name: 'DeepSeek Chat v3.1',
-            file: '../data/responses/deepseek-chat-v3.1_responses.json',
+            file: 'data/responses/deepseek-chat-v3.1_responses.json',
             provider: 'DeepSeek'
         },
         'kimi-k2': {
             name: 'Kimi K2',
-            file: '../data/responses/kimi-k2_responses.json',
+            file: 'data/responses/kimi-k2_responses.json',
             provider: 'Moonshot AI'
         }
     };
@@ -123,7 +123,16 @@
         const model = MODELS[modelKey];
         if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
-        const response = await fetch(model.file);
+        // Add a cache-busting query to avoid stale JSON on GitHub Pages
+        const url = `${model.file}${model.file.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
+        let response = await fetch(url);
+        // Fallback: try with leading ./ in case of relative path resolution quirks
+        if (!response.ok) {
+            try {
+                response = await fetch(`./${url}`);
+            } catch (_) {}
+        }
         if (!response.ok) throw new Error(`Failed to load ${model.name} data`);
         
         const data = await response.json();
