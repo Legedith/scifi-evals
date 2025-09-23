@@ -51,11 +51,12 @@ def call_responses_api(client: openai.OpenAI, question: str, model: str = "gpt-5
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    in_path = root / "scifi-ethical-dilemmas.formatted.json"
-    out_path = root / "scifi-ethical-dilemmas-with-decisions-full.json"
+    in_path = root / "scifi-ethical-dilemmas-enhanced.json"
+    out_path = root / "gpt-5-nano_responses.json"
 
-    # Load environment variables from .env (if present)
-    load_dotenv()
+    # Load environment variables from the repository .env (prefer local over system)
+    env_path = root / ".env"
+    load_dotenv(dotenv_path=str(env_path), override=True)
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -67,14 +68,102 @@ def main():
     data = json.loads(in_path.read_text(encoding="utf-8"))
     # Limit to first 5 dilemmas to avoid excessive queries
     # data = data[:5]
-    results = []
-    for item in data:
-        question = item.get("question", "")
-        parsed = call_responses_api(client, question)
-        results.append({**item, "llm_decision": parsed.model_dump()})
 
-    out_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Wrote decisions to: {out_path}")
+    # Prepare output file and resume if partial results exist
+    results: list = []
+    start_index = 0
+
+    if out_path.exists():
+        try:
+            existing = json.loads(out_path.read_text(encoding="utf-8"))
+            if isinstance(existing, list):
+                results = existing
+                start_index = len(results)
+                print(f"Resuming from existing file, {start_index} responses already saved")
+        except Exception:
+            try:
+                backup = out_path.with_suffix('.json.bak')
+                out_path.rename(backup)
+                print(f"  Backed up corrupt output to {backup}")
+            except Exception:
+                pass
+            results = []
+            start_index = 0
+
+    total = len(data)
+    for idx in range(0, total):
+        item = data[idx]
+
+        # Determine whether this index already has a saved entry
+        existing_entry = None
+        if idx < len(results):
+            existing_entry = results[idx]
+
+        # If existing entry is present and has no error, skip
+        if existing_entry and not existing_entry.get('error'):
+            print(f"  {idx+1}/{total}: {item.get('source', 'Unknown')} (already saved)")
+            continue
+
+        # Otherwise (new or errored), attempt to generate/retry until success or exception
+        try:
+            print(f"  {idx+1}/{total}: {item.get('source', 'Unknown')} (querying)")
+            parsed = call_responses_api(client, item.get('question', ''))
+
+            result = {
+                "source": item.get('source', 'Unknown'),
+                "question": item.get('question', ''),
+                "llm_decision": parsed.model_dump()
+            }
+            if 'author' in item:
+                result["author"] = item['author']
+
+            # Replace existing entry or append
+            if existing_entry:
+                results[idx] = result
+            else:
+                # fill any gap (shouldn't happen) then append
+                while len(results) < idx:
+                    results.append({"source": "", "question": "", "llm_decision": {}, "error": "skipped gap"})
+                results.append(result)
+
+            # Persist after each successful query (atomic write)
+            tmp_path = out_path.with_suffix('.tmp')
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            tmp_path.replace(out_path)
+
+            print(f"    Saved response {idx+1} to {out_path.name}")
+
+        except Exception as e:
+            print(f"    Error: {e}")
+            result = {
+                "source": item.get('source', 'Unknown'),
+                "question": item.get('question', ''),
+                "llm_decision": {},
+                "error": str(e)
+            }
+            if 'author' in item:
+                result["author"] = item['author']
+
+            # Replace or append the error result and persist so we can retry later
+            if existing_entry:
+                results[idx] = result
+            else:
+                while len(results) < idx:
+                    results.append({"source": "", "question": "", "llm_decision": {}, "error": "skipped gap"})
+                results.append(result)
+
+            try:
+                tmp_path = out_path.with_suffix('.tmp')
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(results, f, indent=2, ensure_ascii=False)
+                tmp_path.replace(out_path)
+            except Exception:
+                pass
+
+    success_count = len([r for r in results if 'error' not in r])
+    print(f"Completed: {success_count}/{len(results)} successful responses")
+    print(f"Saved to: {out_path}")
 
 
 if __name__ == "__main__":
