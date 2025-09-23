@@ -20,8 +20,8 @@ scifi-evals/
 │   │   ├── original_dilemmas.json  # Raw ethical dilemmas from sci-fi sources
 │   │   └── formatted_dilemmas.json # Processed and standardized format
 │   ├── enhanced/                   # AI-enhanced versions
-│   │   ├── enhanced_dilemmas.json  # GPT-4 enhanced dilemmas with richer context
-│   │   └── dilemmas_with_gpt4_decisions.json # Enhanced dilemmas + GPT-4 responses
+│   │   ├── enhanced_dilemmas.json  # Enhanced dilemmas with richer context
+│   │   └── dilemmas_with_gpt5_decisions.json # Enhanced dilemmas + GPT-5 decisions (short)
 │   ├── responses/                  # LLM evaluation results
 │   │   ├── gpt-5-nano_responses.json        # OpenAI GPT-5 Nano responses
 │   │   ├── grok-4-fast_responses.json       # xAI Grok 4 Fast responses
@@ -56,7 +56,7 @@ scifi-evals/
 
 ### Phase 2: Enhancement & Enrichment 
 - **Objective**: Improve dilemma quality and add AI-driven context
-- **Enhanced**: Used GPT-4 to add gravity, stakes, and compelling details to scenarios
+- **Enhanced**: Used advanced OpenAI models to add gravity, stakes, and compelling details to scenarios
 - **Developed**: Sophisticated prompt engineering for consistent ethical analysis format
 - **Created**: Enhanced dataset with richer contexts and more challenging scenarios
 
@@ -99,7 +99,7 @@ pip install -e .
 Create a `.env` file in the project root:
 
 ```bash
-# For OpenAI models (GPT-4, GPT-5)
+# For OpenAI models (GPT-5 and others)
 OPENAI_API_KEY=your_openai_key
 
 # For free models via OpenRouter
@@ -120,7 +120,7 @@ Process source data through the full pipeline:
 # Transform raw dilemmas to standardized format
 python scripts/transform_sources.py
 
-# Enhance dilemmas with GPT-4 (adds context and stakes)
+# Enhance dilemmas (adds context and stakes)
 python scripts/enhance_dilemmas.py
 
 # Generate responses from multiple free LLMs
@@ -141,11 +141,23 @@ python -m http.server 8000 --directory docs
 # Navigate to http://localhost:8000
 ```
 
-The web interface allows you to:
+The enhanced web interface allows you to:
+- **Switch between 7 different LLM models** (GPT-5 Decisions, GPT-5 Nano, Grok 4 Fast, Gemma 3 27B, etc.)
+- **Compare responses side-by-side** for the same dilemma across all models with collapsible sections
+- **Quick model switching** directly from the detail view for rapid comparison
+- **Collapsible dilemma list** to maximize content viewing space
 - Browse all ethical dilemmas by source/author
 - Filter and search scenarios
 - View detailed LLM responses and reasoning
-- Download datasets in JSON format
+- Download model-specific datasets in JSON format
+
+**Enhanced Features:**
+- **Default Model Loading**: GPT-5 Decisions loads automatically for immediate exploration
+- **In-Detail Model Switcher**: Change models directly from the detail panel without losing context
+- **Full-Screen Comparison**: Redesigned comparison modal with collapsible sections for decisions, arguments in favor, arguments against, and reasoning
+- **Space-Efficient Layout**: Collapsible sidebar maximizes content viewing area
+- **Enhanced Downloads**: Model-specific data export with proper naming
+- **Visual Indicators**: Clear labeling of which model generated each response
 
 ### 3. Working with the Data
 
