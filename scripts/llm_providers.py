@@ -71,11 +71,15 @@ class OpenRouterProvider(LLMProvider):
         if not self.is_available():
             raise Exception("OpenRouter API key not available")
         
-        # Try structured output first
+        # Some models may not support structured outputs cleanly
+        no_structured_models = {"openai/gpt-oss-120b:free"}
+        if self.model_name in no_structured_models:
+            return await self._try_text_parsing(question)
+        
+        # Try structured output first, then fall back
         try:
             return await self._try_structured_output(question)
         except Exception:
-            # Fall back to text parsing
             return await self._try_text_parsing(question)
     
     async def _try_structured_output(self, question: str) -> Dict[str, Any]:
@@ -160,15 +164,25 @@ class OpenRouterProvider(LLMProvider):
             "- [Point 2]"
         )
         
-        request_data = {
-            "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": question}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 1000
-        }
+        # Minimal payload for models that are sensitive to extra params
+        minimal_payload_models = {"openai/gpt-oss-120b:free"}
+        if self.model_name in minimal_payload_models:
+            request_data = {
+                "model": self.model_name,
+                "messages": [
+                    {"role": "user", "content": question}
+                ]
+            }
+        else:
+            request_data = {
+                "model": self.model_name,
+                "messages": [
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": question}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1000
+            }
         
         async with httpx.AsyncClient(timeout=60) as client:
             response = await self._post_with_retries(client, f"{self.base_url}/chat/completions", headers=self.headers, json_data=request_data)
@@ -405,9 +419,9 @@ class OpenRouterProvider(LLMProvider):
 # Available free models on OpenRouter
 FREE_MODELS = [
     "x-ai/grok-4-fast:free",
+    "google/gemma-3-27b-it:free",
     "nvidia/nemotron-nano-9b-v2:free", 
     "deepseek/deepseek-chat-v3.1:free",
-    "openai/gpt-oss-120b:free",
-    "moonshotai/kimi-k2:free",
-    "google/gemma-3-27b-it:free"
-]
+    # "openai/gpt-oss-120b:free",
+    "moonshotai/kimi-k2:free"
+    ]
