@@ -1,0 +1,5 @@
+embeddings {
+  tensor_name: "ethical_dilemmas_embeddings"
+  tensor_path: "embeddings.tsv"
+  metadata_path: "metadata.tsv"
+}
