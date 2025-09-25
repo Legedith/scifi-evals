@@ -644,20 +644,14 @@
             const thLabel = document.createElement('label'); thLabel.textContent = 'Threshold';
             const thInput = document.createElement('input'); thInput.type = 'range'; thInput.min = '0.00'; thInput.max = '1.00'; thInput.step = '0.01'; thInput.value = String(simState.threshold);
             const thVal = document.createElement('span'); thVal.textContent = Number(simState.threshold).toFixed(2);
-            thInput.addEventListener('input', () => { simState.threshold = parseFloat(thInput.value); thVal.textContent = simState.threshold.toFixed(2); renderComparison(String(currentCompareIndex)); });
+            thInput.addEventListener('input', () => { simState.threshold = parseFloat(thInput.value); thVal.textContent = simState.threshold.toFixed(2); });
+            thInput.addEventListener('change', () => { renderComparison(String(currentCompareIndex)); });
             const autoBtn = document.createElement('button'); autoBtn.textContent = 'Auto'; autoBtn.className = 'secondary'; autoBtn.style.marginLeft = '6px';
             thWrap.appendChild(thLabel); thWrap.appendChild(thInput); thWrap.appendChild(thVal); thWrap.appendChild(autoBtn);
-
-            const heatWrap = document.createElement('label'); heatWrap.style.display = 'inline-flex'; heatWrap.style.gap = '6px';
-            const heatCb = document.createElement('input'); heatCb.type = 'checkbox'; heatCb.checked = !!simState.heatmap; heatCb.id = 'simHeatmapToggle';
-            heatCb.addEventListener('change', () => { simState.heatmap = heatCb.checked; renderComparison(String(currentCompareIndex)); });
-            const heatTxt = document.createElement('span'); heatTxt.textContent = 'Heatmap';
-            heatWrap.appendChild(heatCb); heatWrap.appendChild(heatTxt);
 
             controls.appendChild(kindLabel);
             controls.appendChild(kindSelect);
             controls.appendChild(thWrap);
-            controls.appendChild(heatWrap);
             const stats = document.createElement('span'); stats.className = 'muted'; stats.style.marginLeft = '8px'; stats.id = 'clusterStats'; controls.appendChild(stats);
             compareContent.appendChild(controls);
 
@@ -777,19 +771,29 @@
                 }
                 // Visuals side-by-side: graph (left) and heatmap (right)
                 const visWrap = document.createElement('div');
-                visWrap.style.display = 'flex'; visWrap.style.gap = '12px'; visWrap.style.alignItems = 'flex-start';
+                visWrap.style.display = 'grid';
+                visWrap.style.gap = '12px';
+                visWrap.style.alignItems = 'start';
                 visWrap.style.margin = '6px 0 10px 0';
+                visWrap.style.gridTemplateColumns = 'minmax(220px, 520px) minmax(360px, 660px)';
+                visWrap.style.justifyContent = 'center';
+                visWrap.style.justifyItems = 'center';
                 compareContent.appendChild(visWrap);
 
                 // Graph
                 if (activeGraphStop) { try { activeGraphStop(); } catch (_) { } activeGraphStop = null; }
-                const graphWrap = document.createElement('div'); graphWrap.style.flex = '1'; graphWrap.style.position = 'relative';
-                const canvas = document.createElement('canvas'); canvas.width = 520; canvas.height = 300; canvas.style.width = '100%'; canvas.style.maxWidth = '640px'; canvas.style.border = '1px solid #f0f0f0'; canvas.style.background = '#fff';
+                const graphWrap = document.createElement('div'); graphWrap.style.position = 'relative'; graphWrap.style.justifySelf = 'center';
+                const canvas = document.createElement('canvas'); canvas.style.width = '100%'; canvas.style.display = 'block'; canvas.style.border = '1px solid #f0f0f0'; canvas.style.background = '#fff';
                 graphWrap.appendChild(canvas); visWrap.appendChild(graphWrap);
+                // Size canvas to container to avoid large empty padding
+                const rectInit = graphWrap.getBoundingClientRect();
+                const side = Math.max(220, Math.min(360, Math.floor((rectInit.width || 420) * 0.7)));
+                canvas.width = side;
+                canvas.height = side; // make graph square for denser layout
                 const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height;
                 // Nodes & links
                 const nodes = [];
-                const cx = W * 0.5, cy = H * 0.52; const R = Math.min(W, H) * 0.35;
+                const cx = W * 0.5, cy = H * 0.52; const R = Math.min(W, H) * 0.42;
                 for (let i = 0; i < N; i++) { const ang = (i / N) * Math.PI * 2 - Math.PI / 2; nodes.push({ x: cx + R * Math.cos(ang), y: cy + R * Math.sin(ang), vx: 0, vy: 0 }); }
 
                 // Tooltip
@@ -870,26 +874,30 @@
                 canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 
                 // Heatmap (right)
-                if (simState.heatmap) {
-                    const heatWrap = document.createElement('div'); heatWrap.style.width = '280px'; heatWrap.style.overflow = 'auto';
-                    const table = document.createElement('table'); table.style.borderCollapse = 'collapse'; table.style.fontSize = '10px';
+                if (true) {
+                    const heatWrap = document.createElement('div'); heatWrap.style.width = '100%'; heatWrap.style.maxWidth = '660px'; heatWrap.style.overflow = 'hidden'; heatWrap.style.justifySelf = 'center';
+                    visWrap.appendChild(heatWrap);
+                    const rectH = heatWrap.getBoundingClientRect();
+                    const labelW = 90; // row label column
+                    const cellSize = Math.max(14, Math.min(32, Math.floor((rectH.width - labelW) / N)));
+                    const table = document.createElement('table'); table.style.borderCollapse = 'collapse'; table.style.fontSize = '10px'; table.style.width = '100%';
                     const thead = document.createElement('thead'); const htr = document.createElement('tr');
-                    const corner = document.createElement('th'); corner.textContent = ''; corner.style.width = '60px'; corner.style.padding = '0 4px'; htr.appendChild(corner);
-                    for (let j = 0; j < N; j++) { const thd = document.createElement('th'); thd.style.padding = '0 2px'; thd.style.writingMode = 'vertical-rl'; thd.style.textOrientation = 'mixed'; thd.textContent = uiModels[j]; htr.appendChild(thd); }
+                    const corner = document.createElement('th'); corner.textContent = ''; corner.style.width = labelW + 'px'; corner.style.padding = '0 4px'; htr.appendChild(corner);
+                    for (let j = 0; j < N; j++) { const thd = document.createElement('th'); thd.style.padding = '0'; thd.style.width = cellSize + 'px'; thd.style.height = (cellSize + 12) + 'px'; thd.style.whiteSpace = 'nowrap'; thd.style.overflow = 'hidden'; thd.style.textOverflow = 'ellipsis'; thd.style.textAlign = 'center'; thd.textContent = uiModels[j]; thd.title = uiModels[j]; htr.appendChild(thd); }
                     thead.appendChild(htr);
                     const tbody = document.createElement('tbody');
                     for (let i = 0; i < N; i++) {
                         const tr = document.createElement('tr');
-                        const rowLabel = document.createElement('th'); rowLabel.style.textAlign = 'right'; rowLabel.style.padding = '0 4px'; rowLabel.textContent = uiModels[i]; tr.appendChild(rowLabel);
+                        const rowLabel = document.createElement('th'); rowLabel.style.textAlign = 'right'; rowLabel.style.padding = '0 6px'; rowLabel.style.width = labelW + 'px'; rowLabel.textContent = uiModels[i]; tr.appendChild(rowLabel);
                         for (let j = 0; j < N; j++) {
-                            const td = document.createElement('td'); td.style.width = '14px'; td.style.height = '14px'; td.style.padding = '0'; td.style.border = '1px solid #eee';
+                            const td = document.createElement('td'); td.style.width = cellSize + 'px'; td.style.height = cellSize + 'px'; td.style.padding = '0'; td.style.border = '1px solid #eee';
                             const v = simMatrix[i][j]; const c = Math.max(0, Math.min(255, Math.round(mapVal(v) * 255)));
                             td.style.backgroundColor = `rgb(${255 - c},${255 - Math.floor(c * 0.5)},255)`; td.title = `${uiModels[i]} vs ${uiModels[j]}: ${v.toFixed(2)}`;
                             tr.appendChild(td);
                         }
                         tbody.appendChild(tr);
                     }
-                    table.appendChild(thead); table.appendChild(tbody); heatWrap.appendChild(table); visWrap.appendChild(heatWrap);
+                    table.appendChild(thead); table.appendChild(tbody); heatWrap.appendChild(table);
                 }
             }
         }
