@@ -842,12 +842,16 @@
                     const name = (labels[i] || String(i));
                     ctx.fillText(name, leftPad - 6, y);
                 }
-                // labels: columns (top, horizontal)
+                // labels: columns (top, horizontal, staggered to avoid overlap)
                 ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                const yA = topPad - 6, yB = topPad - 16;
+                // Adjust font size a bit based on cell size
+                const baseFont = cell < 18 ? 9 : 10; ctx.font = `${baseFont}px system-ui, sans-serif`;
                 for (let j = 0; j < n; j++) {
                     const x = leftPad + j * cell + Math.floor(cell / 2);
                     const name = (labels[j] || String(j));
-                    ctx.fillText(name, x, topPad - 4);
+                    const y = (j % 2 === 0) ? yA : yB;
+                    ctx.fillText(name, x, y);
                 }
                 // legend (bottom gradient)
                 const lx = leftPad, ly = topPad + cell * n + legendPad, lw = cell * n, lh = legendH;
