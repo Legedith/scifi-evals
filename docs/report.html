@@ -43,6 +43,8 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 16px;
+            margin: 0 auto;
+            max-width: 1100px;
         }
 
         .muted {
@@ -95,6 +97,207 @@
             border: 1px solid var(--border);
             border-radius: 8px;
         }
+
+        /* Centered layout helpers */
+        .centered {
+            text-align: center;
+        }
+
+        .section-title {
+            text-align: center;
+            margin: 24px 0 8px;
+        }
+
+        .subtle {
+            color: var(--muted);
+        }
+
+        /* Tables */
+        .table-wrap {
+            width: 100%;
+            overflow: auto;
+            margin: 0 auto;
+        }
+
+        table.data-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        table.data-table th,
+        table.data-table td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            text-align: center;
+        }
+
+        table.data-table thead th {
+            position: sticky;
+            top: 0;
+            background: #0f151c;
+            z-index: 1;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .small {
+            font-size: 12px;
+        }
+
+        /* Collapsible */
+        details.card>summary {
+            cursor: pointer;
+            list-style: none;
+        }
+
+        details.card>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.card>summary {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        details.card[open]>summary .chev {
+            transform: rotate(90deg);
+        }
+
+        .chev {
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+
+        pre.json-view {
+            max-height: 420px;
+            overflow: auto;
+            background: #0e1318;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        /* Section spacing and alliance cards */
+        .card+.card {
+            margin-top: 16px;
+        }
+
+        .card-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .mini-card {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .mini-card-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .section-subtitle {
+            margin-top: 12px;
+            color: var(--muted);
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* Compare tool */
+        .compare-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            align-items: start;
+            justify-items: center;
+        }
+
+        .compare-col {
+            width: 100%;
+            max-width: 520px;
+        }
+
+        .compare-header {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .sample-box {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 6px;
+            min-height: 140px;
+        }
+
+        .metrics-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .metrics-table th,
+        .metrics-table td {
+            border: 1px solid var(--border);
+            padding: 6px 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .inline {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .select {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 8px;
+            border-radius: 6px;
+        }
+
+        .btn {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            border-color: #2a394a;
+        }
     </style>
     <script>
         async function fetchJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ': ' + r.status); return r.json(); }
@@ -125,10 +328,8 @@
             const header = el('div', 'card');
             header.innerHTML = `<h2>Overall Report</h2>
         <div class="muted">Generated: ${new Date(report.generatedAt).toLocaleString()}</div>
-        <div class="link-row" style="margin-top:8px;">
+        <div class="link-row" style="margin-top:8px; justify-content:center;">
           <a class="button" href="data/overall_report.json" target="_blank">Download overall_report.json</a>
-          <a class="button" href="../data/analysis/final_comprehensive_results/summary_statistics.csv" target="_blank">Summary statistics (CSV)</a>
-          <a class="button" href="../data/analysis/final_comprehensive_results/model_consistency.csv" target="_blank">Model consistency (CSV)</a>
         </div>`;
             container.appendChild(header);
 
@@ -160,21 +361,33 @@
                 sparklineCooc($("#coocAgainst"), report.cooccurrence?.against?.matrix || []);
             } catch (e) { console.warn('Heatmap error', e); }
 
-            // Cluster interpretations quick view
+            // Cluster interpretations quick view (cards + spacing)
             const cl = el('div', 'card');
+            cl.innerHTML = `<h3 class="centered">Model Alliances</h3>`;
             const parts = clusterInterpretations?.partnership_interpretations || [];
-            cl.innerHTML = `<h3>Model Alliances</h3>`;
-            parts.forEach(p => {
-                const item = el('div');
-                item.innerHTML = `<strong>${p.model1} &amp; ${p.model2}</strong> (${(p.cooccurrence_rate * 100).toFixed(1)}%)<br><span class="muted">${p.interpretation}</span>`;
-                cl.appendChild(item);
-            });
+            if (parts.length) {
+                const grid = el('div', 'card-group');
+                parts.forEach(p => {
+                    const mc = el('div', 'mini-card');
+                    mc.innerHTML = `<div class="mini-card-title">${p.model1} &amp; ${p.model2} <span class="muted">(${(p.cooccurrence_rate * 100).toFixed(1)}%)</span></div>
+                    <div class="muted">${p.interpretation}</div>`;
+                    grid.appendChild(mc);
+                });
+                cl.appendChild(grid);
+            }
             const outs = clusterInterpretations?.outlier_interpretations || [];
-            outs.forEach(o => {
-                const item = el('div');
-                item.innerHTML = `<strong>Outlier: ${o.model}</strong> (rate ${(o.outlier_rate * 100).toFixed(1)}%)<br><span class="muted">${o.interpretation}</span>`;
-                cl.appendChild(item);
-            });
+            if (outs.length) {
+                const sub = el('div', 'section-subtitle', 'Outliers');
+                cl.appendChild(sub);
+                const grid2 = el('div', 'card-group');
+                outs.forEach(o => {
+                    const mc = el('div', 'mini-card');
+                    mc.innerHTML = `<div class="mini-card-title">Outlier: ${o.model} <span class="muted">(${(o.outlier_rate * 100).toFixed(1)}%)</span></div>
+                    <div class="muted">${o.interpretation}</div>`;
+                    grid2.appendChild(mc);
+                });
+                cl.appendChild(grid2);
+            }
             container.appendChild(cl);
 
             // Research question answers (moral)
@@ -194,12 +407,685 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const container = $('.container');
             try {
-                const report = await fetchJSON('data/overall_report.json');
+                const report = await fetchJSON('data/overall_report.json?v=' + Date.now());
+                // Research insights (LLM-powered) at the very top
+                await renderResearchInsights(container);
+                // Compare tool and rest of the report below
+                await renderCompareTool(container, report);
                 renderSummary(container, report);
+                // Study-style visuals using local docs/data only
+                await renderStudyVisuals(container, report);
             } catch (e) {
                 container.appendChild(el('div', 'card', 'Failed to load overall report: ' + e.message));
             }
         });
+
+        async function renderCompareTool(container, report) {
+            // Load per-dilemma similarities and set up model list
+            let perSim = null; try { perSim = await fetchJSON('data/per_dilemma_similarity.json'); } catch (_) { }
+            const models = Array.isArray(perSim?.models) ? perSim.models : [
+                'gpt-5-nano', 'grok-4-fast', 'gemma-3-27b', 'nemotron-nano-9b', 'deepseek-chat-v3.1', 'kimi-k2'
+            ];
+            const modelToIdx = new Map(models.map((m, i) => [m, i]));
+
+            const card = el('div', 'card');
+            card.innerHTML = '<h2 class="centered">Model-to-Model Inspector</h2><div class="subtle centered">Compare two models, view metrics and random samples</div>';
+
+            const grid = el('div', 'compare-grid');
+            const leftCol = el('div', 'compare-col');
+            const midCol = el('div', 'compare-col');
+            const rightCol = el('div', 'compare-col');
+
+            // Shared state and caches
+            const state = {
+                leftModel: models[0] || '',
+                rightModel: models[1] || models[0] || '',
+                sharedKind: 'decision',
+                sharedIndex: 0
+            };
+            const cache = { responses: new Map() };
+            async function loadResponses(modelKey) {
+                if (cache.responses.has(modelKey)) return cache.responses.get(modelKey);
+                const url = `data/responses/${modelKey}_responses.json`;
+                try { const r = await fetch(url); if (!r.ok) throw new Error(`${modelKey}: ${r.status}`); const j = await r.json(); cache.responses.set(modelKey, Array.isArray(j) ? j : []); return cache.responses.get(modelKey); }
+                catch (e) { cache.responses.set(modelKey, []); return []; }
+            }
+
+            // Compute pairwise means from perSim once
+            function computePairwiseMeans(perSimObj) {
+                if (!perSimObj || !perSimObj.items) return null; const N = models.length;
+                const sums = { body: Array.from({ length: N }, () => Array(N).fill(0)), in_favor: Array.from({ length: N }, () => Array(N).fill(0)), against: Array.from({ length: N }, () => Array(N).fill(0)) };
+                const cnts = { body: Array.from({ length: N }, () => Array(N).fill(0)), in_favor: Array.from({ length: N }, () => Array(N).fill(0)), against: Array.from({ length: N }, () => Array(N).fill(0)) };
+                for (const key of Object.keys(perSimObj.items)) {
+                    const item = perSimObj.items[key];['body', 'in_favor', 'against'].forEach(kind => {
+                        const tri = item?.[kind]?.tri || []; const mask = item?.[kind]?.mask || []; let p = 0;
+                        for (let i = 0; i < N - 1; i++) { for (let j = i + 1; j < N; j++) { const ok = mask[p] ?? true; const v = tri[p++] ?? 0; if (ok) { sums[kind][i][j] += v; sums[kind][j][i] += v; cnts[kind][i][j]++; cnts[kind][j][i]++; } } }
+                        for (let i = 0; i < N; i++) { sums[kind][i][i] += 1; cnts[kind][i][i]++; }
+                    });
+                }
+                const means = {};['body', 'in_favor', 'against'].forEach(kind => { means[kind] = Array.from({ length: N }, () => Array(N).fill(0)); for (let i = 0; i < N; i++) { for (let j = 0; j < N; j++) { const c = cnts[kind][i][j] || 1; means[kind][i][j] = sums[kind][i][j] / c; } } });
+                return { means };
+            }
+            const precomp = perSim ? computePairwiseMeans(perSim) : null;
+
+            // Left column UI
+            const leftHeader = el('div', 'compare-header');
+            const leftSelect = document.createElement('select'); leftSelect.className = 'select';
+            models.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; leftSelect.appendChild(o); }); leftSelect.value = state.leftModel;
+            const leftBtn = document.createElement('button'); leftBtn.className = 'btn'; leftBtn.textContent = '🎲'; leftBtn.title = 'Randomize sample';
+            leftHeader.appendChild(leftSelect); leftHeader.appendChild(leftBtn);
+            const leftSample = el('div', 'sample-box'); leftSample.textContent = 'Loading...';
+            leftCol.appendChild(leftHeader); leftCol.appendChild(leftSample);
+
+            // Right column UI
+            const rightHeader = el('div', 'compare-header');
+            const rightSelect = document.createElement('select'); rightSelect.className = 'select';
+            models.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; rightSelect.appendChild(o); }); rightSelect.value = state.rightModel;
+            const rightBtn = document.createElement('button'); rightBtn.className = 'btn'; rightBtn.textContent = '🎲'; rightBtn.title = 'Randomize sample';
+            rightHeader.appendChild(rightSelect); rightHeader.appendChild(rightBtn);
+            const rightSample = el('div', 'sample-box'); rightSample.textContent = 'Loading...';
+            rightCol.appendChild(rightHeader); rightCol.appendChild(rightSample);
+
+            // Middle column metrics
+            const metricsCard = el('div');
+            metricsCard.innerHTML = '<div class="centered"><h3>Pair Metrics</h3><div class="subtle">Averaged across dilemmas</div></div>';
+            const kindWrap = el('div', 'compare-header');
+            const kindSelect = document.createElement('select'); kindSelect.className = 'select';
+            [['decision', 'Decision + Reasoning'], ['in_favor', 'In Favor'], ['against', 'Against']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; kindSelect.appendChild(o); });
+            kindSelect.value = state.sharedKind;
+            kindWrap.appendChild(kindSelect);
+            const metrTable = document.createElement('table'); metrTable.className = 'metrics-table';
+            metrTable.innerHTML = '<thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody id="metrBody"></tbody>';
+            const metrBody = metrTable.querySelector('#metrBody');
+            metricsCard.appendChild(kindWrap);
+            metricsCard.appendChild(metrTable);
+            midCol.appendChild(metricsCard);
+
+            grid.appendChild(leftCol); grid.appendChild(midCol); grid.appendChild(rightCol);
+            card.appendChild(grid);
+            container.appendChild(card);
+
+            // Helpers to compute and render metrics
+            function recomputeMetrics() {
+                metrBody.innerHTML = '';
+                const li = modelToIdx.get(state.leftModel); const ri = modelToIdx.get(state.rightModel);
+                if (!precomp || li == null || ri == null) {
+                    const tr = document.createElement('tr'); tr.innerHTML = '<td colspan="2" class="muted">Similarity data unavailable</td>'; metrBody.appendChild(tr); return;
+                }
+                const b = precomp.means.body[li][ri]; const f = precomp.means.in_favor[li][ri]; const a = precomp.means.against[li][ri];
+                const overall = 0.6 * b + 0.2 * f + 0.2 * a;
+                const divergence = Math.abs(((f + a) / 2) - b);
+                const rows = [
+                    ['Decision similarity', b],
+                    ['In favor similarity', f],
+                    ['Against similarity', a],
+                    ['Overall similarity (0.6/0.2/0.2)', overall],
+                    ['Reasoning divergence', divergence]
+                ];
+                rows.forEach(([k, v]) => { const tr = document.createElement('tr'); const td1 = document.createElement('td'); td1.textContent = k; const td2 = document.createElement('td'); td2.className = 'metric-value'; td2.textContent = (typeof v === 'number') ? v.toFixed(3) : String(v); tr.appendChild(td1); tr.appendChild(td2); metrBody.appendChild(tr); });
+            }
+
+            // Helpers to render a sample block
+            function renderSample(elBox, item, kind) {
+                if (!item) { elBox.innerHTML = '<div class="muted">No data</div>'; return; }
+                const q = item.question || '';
+                const d = item.llm_decision || {};
+                let html = '';
+                if (kind === 'decision') {
+                    html = `<div><strong>Decision</strong>: ${d.decision || '—'}</div>` +
+                        `<div style="margin-top:6px;"><strong>Reasoning</strong>: <span class="muted">${(d.reasoning || '').toString().slice(0, 600)}${(d.reasoning || '').length > 600 ? '…' : ''}</span></div>`;
+                } else if (kind === 'in_favor') {
+                    const arr = Array.isArray(d.considerations?.in_favor) ? d.considerations.in_favor : [];
+                    html = '<div><strong>Arguments In Favor</strong></div><ul style="margin:6px 0 0 16px;">' + arr.slice(0, 5).map(x => `<li>${x}</li>`).join('') + (arr.length > 5 ? '<li class="muted">…</li>' : '') + '</ul>';
+                } else if (kind === 'against') {
+                    const arr = Array.isArray(d.considerations?.against) ? d.considerations.against : [];
+                    html = '<div><strong>Arguments Against</strong></div><ul style="margin:6px 0 0 16px;">' + arr.slice(0, 5).map(x => `<li>${x}</li>`).join('') + (arr.length > 5 ? '<li class="muted">…</li>' : '') + '</ul>';
+                }
+                elBox.innerHTML = `<div class="muted" style="margin-bottom:6px;">${item.source || ''} — ${item.author || ''}</div><div>${html}</div>`;
+            }
+
+            async function renderBothAtIndex(idx) {
+                const leftData = await loadResponses(state.leftModel);
+                const rightData = await loadResponses(state.rightModel);
+                const minLen = Math.min(leftData.length, rightData.length);
+                if (!minLen) { leftSample.innerHTML = '<div class="muted">No data</div>'; rightSample.innerHTML = '<div class="muted">No data</div>'; return; }
+                const clamped = Math.max(0, Math.min(idx, minLen - 1));
+                state.sharedIndex = clamped;
+                renderSample(leftSample, leftData[clamped], state.sharedKind);
+                renderSample(rightSample, rightData[clamped], state.sharedKind);
+            }
+
+            async function randomizeShared() {
+                const leftData = await loadResponses(state.leftModel);
+                const rightData = await loadResponses(state.rightModel);
+                const minLen = Math.min(leftData.length, rightData.length);
+                if (!minLen) { leftSample.innerHTML = '<div class="muted">No data</div>'; rightSample.innerHTML = '<div class="muted">No data</div>'; return; }
+                const idx = Math.floor(Math.random() * minLen);
+                await renderBothAtIndex(idx);
+            }
+
+            // Wire events
+            leftSelect.addEventListener('change', async () => { state.leftModel = leftSelect.value; await renderBothAtIndex(state.sharedIndex); recomputeMetrics(); });
+            rightSelect.addEventListener('change', async () => { state.rightModel = rightSelect.value; await renderBothAtIndex(state.sharedIndex); recomputeMetrics(); });
+            kindSelect.addEventListener('change', async () => { state.sharedKind = kindSelect.value; await renderBothAtIndex(state.sharedIndex); });
+            leftBtn.addEventListener('click', () => { randomizeShared(); });
+            rightBtn.addEventListener('click', () => { randomizeShared(); });
+
+            // Initial render
+            await loadResponses(state.leftModel);
+            await loadResponses(state.rightModel);
+            await randomizeShared();
+            recomputeMetrics();
+        }
+
+        async function renderFullAnalysis(container) {
+            const secHeader = el('div', 'section-title');
+            secHeader.innerHTML = '<h2>Research Findings – Full Analysis</h2><div class="subtle">All available datasets, centered and study-style</div>';
+            container.appendChild(secHeader);
+
+            // Utilities
+            const csvModule = { parser: null };
+            async function fetchCSV(url) {
+                try {
+                    if (!csvModule.parser) {
+                        const mod = await import('https://cdn.jsdelivr.net/npm/d3-dsv@3/+esm');
+                        csvModule.parser = mod.csvParse;
+                    }
+                    const resp = await fetch(url);
+                    if (!resp.ok) throw new Error(url + ': ' + resp.status);
+                    const text = await resp.text();
+                    return csvModule.parser(text);
+                } catch (err) {
+                    throw err;
+                }
+            }
+
+            function numberOrText(v) {
+                const n = Number(v);
+                if (!Number.isNaN(n) && v !== '' && v !== null) return n;
+                return v;
+            }
+
+            function formatCell(v) {
+                if (typeof v === 'number') return (Math.abs(v) >= 1000 ? v.toLocaleString() : v.toFixed(3));
+                return String(v ?? '');
+            }
+
+            function renderTableCard(title, rows, options = {}) {
+                const { limit = 50, showControls = true, downloads = [] } = options;
+                const card = el('div', 'card');
+                const header = el('div', 'centered');
+                header.innerHTML = `<h3>${title}</h3>`;
+                card.appendChild(header);
+
+                const controls = el('div', 'button-row');
+                const rowCount = rows.length;
+                let currentLimit = Math.min(limit, rowCount);
+                const tableWrap = el('div', 'table-wrap');
+                const table = el('table', 'data-table');
+
+                function buildTable() {
+                    table.innerHTML = '';
+                    if (!rows || rows.length === 0) { table.innerHTML = '<tr><td>No data</td></tr>'; return; }
+                    const cols = Object.keys(rows[0] || {});
+                    const thead = document.createElement('thead');
+                    const htr = document.createElement('tr');
+                    cols.forEach(c => { const th = document.createElement('th'); th.textContent = c; htr.appendChild(th); });
+                    thead.appendChild(htr); table.appendChild(thead);
+                    const tbody = document.createElement('tbody');
+                    for (let i = 0; i < Math.min(currentLimit, rows.length); i++) {
+                        const r = rows[i]; const tr = document.createElement('tr');
+                        cols.forEach(c => { const td = document.createElement('td'); td.textContent = formatCell(numberOrText(r[c])); tr.appendChild(td); });
+                        tbody.appendChild(tr);
+                    }
+                    table.appendChild(tbody);
+                }
+
+                buildTable();
+
+                // Controls
+                if (showControls) {
+                    if (rowCount > currentLimit) {
+                        const moreBtn = el('button', 'button small', 'Show all (' + rowCount + ')');
+                        moreBtn.onclick = () => { currentLimit = rowCount; buildTable(); moreBtn.disabled = true; };
+                        controls.appendChild(moreBtn);
+                    }
+                    downloads.forEach(d => {
+                        const a = document.createElement('a'); a.className = 'button small'; a.href = d.url; a.target = '_blank'; a.textContent = d.label || 'Download';
+                        controls.appendChild(a);
+                    });
+                }
+
+                if (controls.children.length) card.appendChild(controls);
+                tableWrap.appendChild(table);
+                card.appendChild(tableWrap);
+                container.appendChild(card);
+            }
+
+            function renderCollapsibleJSONCard(title, url, options = {}) {
+                const { preview = true } = options;
+                const root = document.createElement('details');
+                root.className = 'card';
+                const sum = document.createElement('summary');
+                sum.innerHTML = `<span class="chev">▶</span><strong>${title}</strong>`;
+                root.appendChild(sum);
+                const body = el('div'); body.style.marginTop = '12px'; body.className = 'centered';
+
+                const info = el('div', 'subtle small', 'Click to load and view JSON');
+                body.appendChild(info);
+
+                const dl = document.createElement('div'); dl.className = 'button-row';
+                const a = document.createElement('a'); a.className = 'button small'; a.href = url; a.target = '_blank'; a.textContent = 'Download JSON'; dl.appendChild(a);
+                body.appendChild(dl);
+
+                const pre = document.createElement('pre'); pre.className = 'json-view';
+                body.appendChild(pre);
+
+                let loaded = false;
+                root.addEventListener('toggle', async () => {
+                    if (root.open && !loaded) {
+                        try {
+                            const data = await fetchJSON(url);
+                            pre.textContent = preview ? JSON.stringify(data, null, 2) : 'Loaded.';
+                            info.textContent = '';
+                            loaded = true;
+                        } catch (e) {
+                            pre.textContent = 'Failed to load: ' + e.message;
+                        }
+                    }
+                });
+
+                root.appendChild(body);
+                container.appendChild(root);
+            }
+
+            // Sections
+            // 1) Advanced research – Ethical schools & specialization
+            try {
+                const ethicalRows = await fetchCSV('../data/analysis/advanced_research_final/ethical_schools.csv');
+                renderTableCard('Ethical Schools (Triads and Stability)', ethicalRows, {
+                    limit: 50,
+                    downloads: [{ url: '../data/analysis/advanced_research_final/ethical_schools.csv', label: 'Download CSV' }]
+                });
+            } catch (e) {
+                container.appendChild(el('div', 'card centered', 'Failed to load Ethical Schools: ' + e.message));
+            }
+            try {
+                const specRows = await fetchCSV('../data/analysis/advanced_research_final/reasoning_specialization.csv');
+                renderTableCard('Reasoning Specialization (Pairwise)', specRows, {
+                    limit: 50,
+                    downloads: [{ url: '../data/analysis/advanced_research_final/reasoning_specialization.csv', label: 'Download CSV' }]
+                });
+            } catch (e) {
+                container.appendChild(el('div', 'card centered', 'Failed to load Reasoning Specialization: ' + e.message));
+            }
+
+            // 2) Temporal consistency & topic alliances
+            try {
+                const tmpRows = await fetchCSV('../data/analysis/advanced_research_final/temporal_consistency.csv');
+                renderTableCard('Temporal Consistency Over Questions', tmpRows, {
+                    limit: 20,
+                    downloads: [{ url: '../data/analysis/advanced_research_final/temporal_consistency.csv', label: 'Download CSV' }]
+                });
+            } catch (e) {
+                container.appendChild(el('div', 'card centered', 'Failed to load Temporal Consistency: ' + e.message));
+            }
+            try {
+                const topicRows = await fetchCSV('../data/analysis/advanced_research_final/topic_alliances.csv');
+                renderTableCard('Topic Alliances by Author', topicRows, {
+                    limit: 50,
+                    downloads: [{ url: '../data/analysis/advanced_research_final/topic_alliances.csv', label: 'Download CSV' }]
+                });
+            } catch (e) {
+                container.appendChild(el('div', 'card centered', 'Failed to load Topic Alliances: ' + e.message));
+            }
+
+            // 3) Comprehensive results – summaries, consistency, correlations, baselines
+            for (const [title, path, lim] of [
+                ['Summary Statistics', '../data/analysis/final_comprehensive_results/summary_statistics.csv', 50],
+                ['Model Consistency', '../data/analysis/final_comprehensive_results/model_consistency.csv', 100],
+                ['Cross-kind Correlations', '../data/analysis/final_comprehensive_results/cross_kind_correlations.csv', 100],
+                ['Random Baseline', '../data/analysis/final_comprehensive_results/random_baseline.csv', 100]
+            ]) {
+                try {
+                    const rows = await fetchCSV(path);
+                    renderTableCard(title, rows, { limit: lim, downloads: [{ url: path, label: 'Download CSV' }] });
+                } catch (e) {
+                    container.appendChild(el('div', 'card centered', 'Failed to load ' + title + ': ' + e.message));
+                }
+            }
+
+            // 4) Co-occurrence matrices (raw & normalized) – collapsible due to size
+            for (const path of [
+                '../data/analysis/final_comprehensive_results/cooccurrence_body_raw.csv',
+                '../data/analysis/final_comprehensive_results/cooccurrence_body_normalized.csv',
+                '../data/analysis/final_comprehensive_results/cooccurrence_in_favor_raw.csv',
+                '../data/analysis/final_comprehensive_results/cooccurrence_in_favor_normalized.csv',
+                '../data/analysis/final_comprehensive_results/cooccurrence_against_raw.csv',
+                '../data/analysis/final_comprehensive_results/cooccurrence_against_normalized.csv'
+            ]) {
+                const title = 'Co-occurrence – ' + path.split('/').pop().replace(/_/g, ' ').replace('.csv', '').toUpperCase();
+                const details = document.createElement('details'); details.className = 'card';
+                const sum = document.createElement('summary'); sum.innerHTML = `<span class="chev">▶</span><strong>${title}</strong>`; details.appendChild(sum);
+                const body = el('div'); body.style.marginTop = '12px';
+                const info = el('div', 'subtle small centered', 'Click to load table'); body.appendChild(info);
+                const dl = el('div', 'button-row'); const a = document.createElement('a'); a.className = 'button small'; a.href = path; a.target = '_blank'; a.textContent = 'Download CSV'; dl.appendChild(a); body.appendChild(dl);
+                const wrap = el('div', 'table-wrap'); const table = el('table', 'data-table'); wrap.appendChild(table); body.appendChild(wrap);
+                let loaded = false;
+                details.addEventListener('toggle', async () => {
+                    if (details.open && !loaded) {
+                        try {
+                            const rows = await fetchCSV(path); info.textContent = ''; const cols = Object.keys(rows[0] || {});
+                            const thead = document.createElement('thead'); const htr = document.createElement('tr'); cols.forEach(c => { const th = document.createElement('th'); th.textContent = c; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+                            const tbody = document.createElement('tbody'); const maxRows = 200; const count = Math.min(rows.length, maxRows);
+                            for (let i = 0; i < count; i++) { const r = rows[i]; const tr = document.createElement('tr'); cols.forEach(c => { const td = document.createElement('td'); td.textContent = formatCell(numberOrText(r[c])); tr.appendChild(td); }); tbody.appendChild(tr); }
+                            table.appendChild(tbody);
+                            if (rows.length > maxRows) { const note = el('div', 'subtle small centered', `Showing ${count} of ${rows.length} rows`); body.appendChild(note); }
+                            loaded = true;
+                        } catch (e) { info.textContent = 'Failed to load: ' + e.message; }
+                    }
+                });
+                details.appendChild(body); container.appendChild(details);
+            }
+
+            // 5) Detailed results (JSON)
+            renderCollapsibleJSONCard('Detailed Results (JSON)', '../data/analysis/final_comprehensive_results/detailed_results.json');
+
+            // 6) Clustering artifacts
+            renderCollapsibleJSONCard('Clusters (JSON)', '../data/analysis/clusters.json');
+
+            // 7) Moral Framework – prep and full results
+            try {
+                const sampRows = await fetchCSV('../data/analysis/moral_framework_prep/scenario_sampling_stats.csv');
+                renderTableCard('Moral Framework – Scenario Sampling Stats', sampRows, { limit: 50, downloads: [{ url: '../data/analysis/moral_framework_prep/scenario_sampling_stats.csv', label: 'Download CSV' }] });
+            } catch (e) { container.appendChild(el('div', 'card centered', 'Failed to load Sampling Stats: ' + e.message)); }
+
+            renderCollapsibleJSONCard('Moral Framework – Prepared Analysis (JSON)', '../data/analysis/moral_framework_prep/prepared_moral_analysis.json');
+            renderCollapsibleJSONCard('Moral Framework – Raw Samples (JSON)', '../data/analysis/moral_framework_prep/raw_moral_samples.json');
+            renderCollapsibleJSONCard('Moral Framework – Full Results (JSON)', '../data/analysis/moral_framework_results/moral_framework_analysis_complete.json');
+            try {
+                const rqf = await fetchCSV('../data/analysis/moral_demo/research_questions_framework.csv');
+                renderTableCard('Moral Framework – Research Questions', rqf, { limit: 50, downloads: [{ url: '../data/analysis/moral_demo/research_questions_framework.csv', label: 'Download CSV' }] });
+            } catch (e) { container.appendChild(el('div', 'card centered', 'Failed to load Research Questions: ' + e.message)); }
+            renderCollapsibleJSONCard('Moral Framework – Demo (JSON)', '../data/analysis/moral_demo/moral_framework_demo.json');
+
+            // 8) LLM demo and interpretations
+            renderCollapsibleJSONCard('LLM Demo – Prompts (JSON)', '../data/analysis/llm_demo/llm_demo_prompts.json');
+            renderCollapsibleJSONCard('LLM Interpretations – Cluster Interpretations (JSON)', '../data/analysis/llm_interpretations/cluster_interpretations.json');
+        }
+
+        async function renderStudyVisuals(container, report) {
+            const secHeader = el('div', 'section-title');
+            secHeader.innerHTML = '<h2>Research Findings – Visual Summary</h2><div class="subtle">Visuals computed from local report and similarity data</div>';
+            container.appendChild(secHeader);
+
+            // Data sources in docs/data only
+            const perSim = await (async () => { try { return await fetchJSON('data/per_dilemma_similarity.json'); } catch (_) { return null; } })();
+            const formatted = await (async () => { try { return await fetchJSON('data/source/formatted_dilemmas.json'); } catch (_) { return []; } })();
+
+            // Helper: draw bar chart
+            function drawBars(canvas, labels, values) {
+                const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height;
+                ctx.clearRect(0, 0, W, H); const padL = 40, padR = 12, padT = 12, padB = 40;
+                const n = values.length || 0; if (!n) return;
+                const vMax = Math.max(1e-6, Math.max(...values)); const vMin = Math.min(0, Math.min(...values));
+                const barW = Math.max(6, Math.min(48, Math.floor((W - padL - padR) / (n * 1.4))));
+                const step = (W - padL - padR) / n; const zeroY = H - padB - (0 - vMin) / (vMax - vMin || 1) * (H - padT - padB);
+                ctx.strokeStyle = '#334'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+                for (let i = 0; i < n; i++) {
+                    const v = values[i]; const x = padL + i * step + (step - barW) / 2; const h = ((Math.abs(v - 0)) / (vMax - vMin || 1)) * (H - padT - padB);
+                    const y = v >= 0 ? zeroY - h : zeroY; ctx.fillStyle = '#5b9cff'; ctx.fillRect(x, y, barW, h);
+                }
+                ctx.fillStyle = '#a7b4c2'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+                for (let i = 0; i < n; i++) { const x = padL + i * step + step / 2; ctx.save(); ctx.translate(x, H - padB + 10); ctx.rotate(-0.6); ctx.fillText((labels[i] || '').toString().slice(0, 16), 0, 0); ctx.restore(); }
+                ctx.textAlign = 'right'; ctx.fillText((vMin).toFixed(2), padL - 6, H - padB); ctx.fillText((vMax).toFixed(2), padL - 6, padT + 8);
+            }
+
+            // Helper: draw line chart with multiple series
+            function drawLines(canvas, xlabels, series) {
+                const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height; ctx.clearRect(0, 0, W, H);
+                const padL = 40, padR = 12, padT = 12, padB = 28; const n = xlabels.length || 0; if (!n) return;
+                const vals = []; series.forEach(s => vals.push(...s.values)); const vMin = Math.min(...vals, 0), vMax = Math.max(...vals, 1);
+                const x = i => padL + (W - padL - padR) * (i / Math.max(1, n - 1));
+                const y = v => H - padB - (v - vMin) / (vMax - vMin || 1) * (H - padT - padB);
+                ctx.strokeStyle = '#334'; ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+                const colors = ['#5b9cff', '#a8e063', '#ff9f40'];
+                series.forEach((s, si) => {
+                    ctx.strokeStyle = colors[si % colors.length]; ctx.lineWidth = 2; ctx.beginPath();
+                    for (let i = 0; i < n; i++) { const xv = x(i), yv = y(s.values[i]); if (i === 0) ctx.moveTo(xv, yv); else ctx.lineTo(xv, yv); }
+                    ctx.stroke();
+                });
+                ctx.fillStyle = '#a7b4c2'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+                for (let i = 0; i < n; i++) { ctx.fillText(String(xlabels[i]), x(i), H - 12); }
+                ctx.textAlign = 'right'; ctx.fillText(vMin.toFixed(2), padL - 6, H - padB); ctx.fillText(vMax.toFixed(2), padL - 6, padT + 8);
+            }
+
+            // Helper: heatmap for pairwise mean similarities
+            function drawHeatmap(canvas, matrix) {
+                const ctx = canvas.getContext('2d'); const n = matrix.length; if (!n) return; const size = Math.min(canvas.width, canvas.height); const cell = Math.floor(size / n);
+                let maxV = 0, minV = 1; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j) { const v = matrix[i][j]; maxV = Math.max(maxV, v); minV = Math.min(minV, v); }
+                const norm = v => maxV > minV ? (v - minV) / (maxV - minV) : 0.5; ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) { const t = norm(matrix[i][j]); const r = 30, g = Math.floor(60 + 100 * t), b = Math.floor(140 + 80 * t); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(j * cell, i * cell, cell - 1, cell - 1); } }
+            }
+
+            // Compute pairwise means from per_dilemma_similarity
+            function computePairwiseMeans(perSim) {
+                if (!perSim || !perSim.items) return null; const models = perSim.models || [];
+                const N = models.length; const sums = { body: Array.from({ length: N }, () => Array(N).fill(0)), in_favor: Array.from({ length: N }, () => Array(N).fill(0)), against: Array.from({ length: N }, () => Array(N).fill(0)) };
+                const cnts = { body: Array.from({ length: N }, () => Array(N).fill(0)), in_favor: Array.from({ length: N }, () => Array(N).fill(0)), against: Array.from({ length: N }, () => Array(N).fill(0)) };
+                const idxs = Object.keys(perSim.items);
+                for (const key of idxs) {
+                    const item = perSim.items[key]; const kinds = ['body', 'in_favor', 'against'];
+                    kinds.forEach(kind => {
+                        const tri = item?.[kind]?.tri || []; const mask = item?.[kind]?.mask || []; let p = 0;
+                        for (let i = 0; i < N - 1; i++) { for (let j = i + 1; j < N; j++) { const valid = mask[p] ?? true; const v = tri[p++] ?? 0; if (valid) { sums[kind][i][j] += v; sums[kind][j][i] += v; cnts[kind][i][j]++; cnts[kind][j][i]++; } } }
+                        for (let i = 0; i < N; i++) { sums[kind][i][i] += 1; cnts[kind][i][i]++; }
+                    });
+                }
+                const means = {};['body', 'in_favor', 'against'].forEach(kind => { means[kind] = Array.from({ length: N }, () => Array(N).fill(0)); for (let i = 0; i < N; i++) { for (let j = 0; j < N; j++) { const c = cnts[kind][i][j] || 1; means[kind][i][j] = sums[kind][i][j] / c; } } });
+                return { models, means };
+            }
+
+            // 1) Similarity overview heatmaps
+            if (perSim) {
+                const { models, means } = computePairwiseMeans(perSim) || {};
+                if (models && means) {
+                    const card = el('div', 'card');
+                    card.innerHTML = '<h3 class="centered">Pairwise Similarity Overview</h3><div class="subtle centered">Average similarity across all dilemmas</div>';
+                    const grid = el('div', 'grid grid-2');
+                    const mk = [['Decision (body)', 'body'], ['In Favor', 'in_favor'], ['Against', 'against']];
+                    mk.forEach(([label, k]) => {
+                        const wrap = el('div'); const title = el('div', 'muted centered', label); const c = document.createElement('canvas'); c.width = 320; c.height = 320; wrap.appendChild(title); wrap.appendChild(c); grid.appendChild(wrap); setTimeout(() => drawHeatmap(c, means[k]), 0);
+                    });
+                    card.appendChild(grid);
+                    const note = el('div', 'subtle small centered', 'Darker cells indicate higher agreement between models'); card.appendChild(note);
+                    container.appendChild(card);
+                }
+            }
+
+            // 2) Ethical schools (triads) & specialization, derived from pairwise means
+            if (perSim) {
+                const { models, means } = computePairwiseMeans(perSim) || {};
+                if (models && means) {
+                    // Triads
+                    const triads = [];
+                    for (let a = 0; a < models.length; a++) for (let b = a + 1; b < models.length; b++) for (let c = b + 1; c < models.length; c++) {
+                        const bodyVals = [means.body[a][b], means.body[a][c], means.body[b][c]];
+                        const favVals = [means.in_favor[a][b], means.in_favor[a][c], means.in_favor[b][c]];
+                        const agVals = [means.against[a][b], means.against[a][c], means.against[b][c]];
+                        const avg = arr => arr.reduce((x, y) => x + y, 0) / arr.length; const min = arr => Math.min(...arr);
+                        const row = {
+                            models: `${models[a]} & ${models[b]} & ${models[c]}`,
+                            body_avg: avg(bodyVals), body_min: min(bodyVals),
+                            favor_avg: avg(favVals), favor_min: min(favVals),
+                            against_avg: avg(agVals), against_min: min(agVals)
+                        };
+                        row.stability = Math.min(row.body_min, row.favor_min, row.against_min);
+                        triads.push(row);
+                    }
+                    triads.sort((x, y) => y.body_avg - x.body_avg);
+                    const topN = triads.slice(0, 10);
+                    const card = el('div', 'card');
+                    card.innerHTML = '<h3 class="centered">Ethical Schools (Top Triads)</h3><div class="subtle centered">Derived from average pairwise similarity</div>';
+                    const tableWrap = el('div', 'table-wrap'); const table = el('table', 'data-table');
+                    const headers = ['models', 'body_avg', 'body_min', 'favor_avg', 'favor_min', 'against_avg', 'against_min', 'stability'];
+                    const thead = document.createElement('thead'); const htr = document.createElement('tr'); headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+                    const tbody = document.createElement('tbody');
+                    topN.forEach(r => { const tr = document.createElement('tr'); headers.forEach(h => { const td = document.createElement('td'); const v = r[h]; td.textContent = typeof v === 'number' ? v.toFixed(3) : v; tr.appendChild(td); }); tbody.appendChild(tr); });
+                    table.appendChild(tbody); tableWrap.appendChild(table); card.appendChild(tableWrap);
+                    const explain = el('div', 'subtle small centered', 'Stability = minimum of the three triad minima across decision, in favor, and against'); card.appendChild(explain);
+                    container.appendChild(card);
+
+                    // Specialization (pairwise)
+                    const pairs = [];
+                    for (let i = 0; i < models.length; i++) for (let j = i + 1; j < models.length; j++) {
+                        const body = means.body[i][j], fav = means.in_favor[i][j], ag = means.against[i][j];
+                        const reasoning = (fav + ag) / 2; const divergence = Math.abs(reasoning - body);
+                        const specialization = divergence <= 0.05 ? 'aligned_reasoning' : 'similar_conclusions_different_reasoning';
+                        pairs.push({ model_pair: `${models[i]} & ${models[j]}`, conclusion_agreement: body, favor_agreement: fav, against_agreement: ag, reasoning_divergence: divergence, specialization_type: specialization });
+                    }
+                    pairs.sort((a, b) => b.conclusion_agreement - a.conclusion_agreement);
+                    const sCard = el('div', 'card'); sCard.innerHTML = '<h3 class="centered">Reasoning Specialization</h3><div class="subtle centered">Pairwise agreement and divergence</div>';
+                    const sTableWrap = el('div', 'table-wrap'); const sTable = el('table', 'data-table');
+                    const sHeaders = ['model_pair', 'conclusion_agreement', 'favor_agreement', 'against_agreement', 'reasoning_divergence', 'specialization_type'];
+                    const sThead = document.createElement('thead'); const sHtr = document.createElement('tr'); sHeaders.forEach(h => { const th = document.createElement('th'); th.textContent = h; sHtr.appendChild(th); }); sThead.appendChild(sHtr); sTable.appendChild(sThead);
+                    const sTbody = document.createElement('tbody'); pairs.forEach(r => { const tr = document.createElement('tr'); sHeaders.forEach(h => { const td = document.createElement('td'); const v = r[h]; td.textContent = typeof v === 'number' ? v.toFixed(3) : v; tr.appendChild(td); }); sTbody.appendChild(tr); }); sTable.appendChild(sTbody);
+                    sTableWrap.appendChild(sTable); sCard.appendChild(sTableWrap);
+                    const sExplain = el('div', 'subtle small centered', 'Divergence = |avg(in_favor, against) - decision|. Threshold 0.05 for alignment.'); sCard.appendChild(sExplain);
+                    container.appendChild(sCard);
+                }
+            }
+
+            // 3) Temporal consistency derived from per-dilemma similarities
+            if (perSim) {
+                const models = perSim.models || []; const N = models.length; const idxs = Object.keys(perSim.items).map(k => parseInt(k, 10)).sort((a, b) => a - b);
+                function agreeBetweenKinds(item, kindA, kindB) {
+                    const A = item?.[kindA]; const B = item?.[kindB]; if (!A || !B) return 0;
+                    let p = 0; let diffs = 0; let count = 0;
+                    for (let i = 0; i < N - 1; i++) { for (let j = i + 1; j < N; j++) { const mA = A.mask?.[p] ?? true; const mB = B.mask?.[p] ?? true; const a = A.tri?.[p] ?? 0; const b = B.tri?.[p] ?? 0; p++; if (mA && mB) { diffs += Math.abs(a - b); count++; } } }
+                    if (!count) return 0; const avgDiff = diffs / count; return 1 - avgDiff;
+                }
+                const bins = 5; const binSize = Math.ceil(idxs.length / bins); const xlabels = [];
+                const s1 = [], s2 = [], s3 = [];
+                for (let b = 0; b < bins; b++) {
+                    const start = b * binSize; const end = Math.min(idxs.length, start + binSize); if (start >= end) break; const label = `Q${idxs[start] + 1}-${idxs[end - 1] + 1}`; xlabels.push(label);
+                    let acc1 = 0, acc2 = 0, acc3 = 0, c = 0; for (let k = start; k < end; k++) { const item = perSim.items[String(idxs[k])]; if (!item) continue; acc1 += agreeBetweenKinds(item, 'body', 'in_favor'); acc2 += agreeBetweenKinds(item, 'body', 'against'); acc3 += agreeBetweenKinds(item, 'in_favor', 'against'); c++; }
+                    s1.push(c ? acc1 / c : 0); s2.push(c ? acc2 / c : 0); s3.push(c ? acc3 / c : 0);
+                }
+                const card = el('div', 'card'); card.innerHTML = '<h3 class="centered">Temporal Consistency</h3><div class="subtle centered">Agreement between decision and arguments across the question range</div>';
+                const c = document.createElement('canvas'); c.width = 760; c.height = 320; card.appendChild(c);
+                setTimeout(() => drawLines(c, xlabels, [{ name: 'Body vs Favor', values: s1 }, { name: 'Body vs Against', values: s2 }, { name: 'Favor vs Against', values: s3 }]), 0);
+                container.appendChild(card);
+            }
+
+            // 4) Topic/author distribution from formatted dilemmas
+            if (Array.isArray(formatted) && formatted.length) {
+                const byAuthor = new Map(); formatted.forEach((d, i) => { const a = (d.author || ''); const obj = byAuthor.get(a) || { count: 0, sumIdx: 0 }; obj.count++; obj.sumIdx += (i + 1); byAuthor.set(a, obj); });
+                const entries = Array.from(byAuthor.entries()).map(([a, v]) => ({ author: a || 'Unknown', num_questions: v.count, avg_question_id: v.sumIdx / v.count })).sort((x, y) => y.num_questions - x.num_questions);
+                const labels = entries.map(e => e.author); const values = entries.map(e => e.num_questions);
+                const card = el('div', 'card'); card.innerHTML = '<h3 class="centered">Topic Alliances by Author</h3><div class="subtle centered">Distribution of dilemmas by author</div>';
+                const c = document.createElement('canvas'); c.width = 820; c.height = 360; card.appendChild(c); setTimeout(() => drawBars(c, labels, values), 0);
+                const tableWrap = el('div', 'table-wrap'); const table = el('table', 'data-table'); const thead = document.createElement('thead'); const htr = document.createElement('tr');['author', 'num_questions', 'avg_question_id'].forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+                const tbody = document.createElement('tbody'); entries.forEach(r => { const tr = document.createElement('tr');['author', 'num_questions', 'avg_question_id'].forEach(h => { const td = document.createElement('td'); const v = r[h]; td.textContent = typeof v === 'number' ? (h === 'avg_question_id' ? v.toFixed(2) : v.toString()) : v; tr.appendChild(td); }); tbody.appendChild(tr); }); table.appendChild(tbody); tableWrap.appendChild(table); card.appendChild(tableWrap);
+                container.appendChild(card);
+            }
+
+            // 5) Interpretative notes
+            const notes = el('div', 'card');
+            notes.innerHTML = '<h3 class="centered">How to Read These Findings</h3>' +
+                '<div class="muted">' +
+                '<p class="centered">Higher similarity indicates models tend to reach similar decisions or cite similar types of reasons. Divergence suggests different justifications even when conclusions align.</p>' +
+                '<p class="centered">Temporal consistency shows whether relationships between decisions and rationales are steady across the dataset. Triads capture stable alliances among three models.</p>' +
+                '<p class="centered">Author distributions contextualize where dilemmas cluster; they do not imply quality, only prevalence in the corpus.</p>' +
+                '</div>';
+            container.appendChild(notes);
+        }
+
+        async function renderResearchInsights(container) {
+            async function tryFetch(cands) {
+                for (const u of cands) {
+                    try { const j = await fetchJSON(u + (u.includes('?') ? '' : ('?v=' + Date.now()))); return j; } catch (_) { }
+                }
+                throw new Error('research_analyses.json not found');
+            }
+            const candidates = [
+                // Prefer within docs/ so static hosting works without going outside
+                'data/llm_interpretations/research_analyses.json',
+                // Fallbacks (if server allows parent access)
+                'data/analysis/llm_interpretations/research_analyses.json',
+                '../data/analysis/llm_interpretations/research_analyses.json',
+                'data/research_analyses.json'
+            ];
+
+            let data = null;
+            try { data = await tryFetch(candidates); } catch (e) {
+                container.appendChild(el('div', 'card centered', 'Research analyses not found: ' + e.message));
+                return;
+            }
+
+            const metaCard = el('div', 'card');
+            const meta = data?.metadata || {};
+            const models = Array.isArray(meta.evaluated_models) ? meta.evaluated_models : [];
+            const chips = models.map(m => `<span class="chip">${m}</span>`).join(' ');
+            metaCard.innerHTML = `<h2 class="centered">Research Insights</h2>
+                <div class="centered subtle">LLM analyst: ${meta.analyzer_model || '—'}</div>
+                <div class="centered" style="margin-top:8px;">${chips}</div>`;
+            container.appendChild(metaCard);
+
+            const analyses = Array.isArray(data?.analyses) ? data.analyses : [];
+            if (!analyses.length) {
+                container.appendChild(el('div', 'card centered', 'No research analyses available.'));
+                return;
+            }
+
+            for (const a of analyses) {
+                const card = el('div', 'card');
+                const title = a.title || a.question_key || 'Research Question';
+                const fm = Array.isArray(a.models_analyzed) ? a.models_analyzed : [];
+                const mchips = fm.map(m => `<span class="chip">${m}</span>`).join(' ');
+                const conf = typeof a.confidence === 'number' ? a.confidence : null;
+                const confText = conf != null ? (conf * 100).toFixed(0) + '%' : '—';
+
+                const header = el('div', 'centered');
+                header.innerHTML = `<h3>${title}</h3>
+                    <div class="chips" style="justify-content:center; margin-top:6px;">${mchips}</div>
+                    <div class="subtle" style="margin-top:6px;">Confidence: ${confText}</div>`;
+                card.appendChild(header);
+
+                const findings = (a.findings || '').toString();
+                if (findings) {
+                    const det = document.createElement('details'); det.className = 'mini-card';
+                    const sum = document.createElement('summary'); sum.textContent = 'Findings'; det.appendChild(sum);
+                    const body = el('div'); body.style.marginTop = '8px'; body.className = 'muted'; body.textContent = findings; det.appendChild(body);
+                    card.appendChild(det);
+                }
+
+                const groups = Array.isArray(a.model_groupings) ? a.model_groupings : [];
+                if (groups.length) {
+                    const grTitle = el('div', 'section-subtitle', 'Model Groupings'); card.appendChild(grTitle);
+                    const groupGrid = el('div', 'card-group');
+                    for (const g of groups) {
+                        const gc = el('div', 'mini-card');
+                        const gm = Array.isArray(g.models) ? g.models : [];
+                        const gchips = gm.map(m => `<span class="chip">${m}</span>`).join(' ');
+                        gc.innerHTML = `<div class="mini-card-title">${g.label || 'Group'}</div>
+                            <div class="chips" style="margin-bottom:6px;">${gchips}</div>
+                            <div class="muted">${g.rationale || ''}</div>`;
+                        groupGrid.appendChild(gc);
+                    }
+                    card.appendChild(groupGrid);
+                }
+
+                const conclusion = (a.conclusion || '').toString();
+                if (conclusion) {
+                    const conc = el('div', 'mini-card');
+                    conc.innerHTML = `<div class="mini-card-title">Conclusion</div><div class="muted">${conclusion}</div>`;
+                    card.appendChild(conc);
+                }
+
+                container.appendChild(card);
+            }
+        }
     </script>
 </head>
 
