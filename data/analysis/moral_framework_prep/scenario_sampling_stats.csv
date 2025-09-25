@@ -1,0 +1,7 @@
+scenario_type,research_question,keywords,total_samples_found,models_with_data
+temporal_priorities,"When dilemmas pit immediate harm (death in hours) against long-term consequences (societal collapse in decades), which models consistently prioritize which timeframes?","immediate, long-term, hours, decades, future, collapse, death",18,6
+consent_override,How do different models justify overriding individual consent 'for the greater good' - and which ones never do regardless of stakes?,"consent, override, against will, greater good, force, autonomy",18,6
+resource_allocation,"When forced to allocate limited resources (oxygen, medicine, escape pods), what implicit value systems do models reveal through their prioritization schemes?","limited, allocate, oxygen, medicine, escape pod, scarce, priority",18,6
+autonomy_conditions,"Under what specific circumstances do models support overriding individual autonomy, and do they maintain consistent standards across similar scenarios?","autonomy, individual, override, freedom, choice, coerce",18,6
+preventive_harm,How do models handle scenarios where preventing future harm requires harming innocent individuals who haven't acted yet?,"prevent, innocent, future harm, preemptive, not acted, potential",18,6
+truth_vs_lying,Can we identify models that never lie regardless of consequences vs. those with situational truth-telling based on harm calculations?,"truth, lie, honesty, deception, consequences, harm from truth",18,6

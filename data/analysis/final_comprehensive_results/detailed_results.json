@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "n_questions": 137,
+    "n_models": 6,
+    "models": [
+      "deepseek-chat-v3.1",
+      "gemma-3-27b",
+      "gpt-5-nano",
+      "grok-4-fast",
+      "kimi-k2",
+      "nemotron-nano-9b"
+    ],
+    "kinds": [
+      "body",
+      "in_favor",
+      "against"
+    ],
+    "n_random_simulations": 1000
+  },
+  "random_baseline": {
+    "mean_max_cooccurrence": 208.266,
+    "std_max_cooccurrence": 3.877530657519035,
+    "p95_max_cooccurrence": 215.04999999999995,
+    "p99_max_cooccurrence": 219.0
+  },
+  "summary_statistics": [
+    {
+      "kind": "body",
+      "max_cooccurrence": 103.0,
+      "mean_cooccurrence": 68.11111111111111,
+      "std_cooccurrence": 32.10207485313906,
+      "max_normalized": 0.7518248175182481,
+      "mean_normalized": 0.49716139497161393,
+      "std_normalized": 0.23432171425648948,
+      "top_pair": "grok-4-fast & nemotron-nano-9b",
+      "top_pair_count": 103.0
+    },
+    {
+      "kind": "in_favor",
+      "max_cooccurrence": 86.0,
+      "mean_cooccurrence": 57.22222222222222,
+      "std_cooccurrence": 27.144787826999856,
+      "max_normalized": 0.6277372262773723,
+      "mean_normalized": 0.41768045417680455,
+      "std_normalized": 0.19813713742335662,
+      "top_pair": "gpt-5-nano & grok-4-fast",
+      "top_pair_count": 86.0
+    },
+    {
+      "kind": "against",
+      "max_cooccurrence": 75.0,
+      "mean_cooccurrence": 54.833333333333336,
+      "std_cooccurrence": 25.173288312106635,
+      "max_normalized": 0.5474452554744526,
+      "mean_normalized": 0.4002433090024331,
+      "std_normalized": 0.18374663001537692,
+      "top_pair": "gpt-5-nano & grok-4-fast",
+      "top_pair_count": 75.0
+    }
+  ]
+}

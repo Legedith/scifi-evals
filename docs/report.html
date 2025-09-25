@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overall Report</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        :root {
+            --bg: #0b0f13;
+            --panel: #11161c;
+            --text: #e6eef6;
+            --muted: #a7b4c2;
+            --border: #1e2630;
+            --card: #121821;
+            --primary: #5b9cff;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text);
+            background: #0e1318;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .link-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        a.button {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--text);
+            background: #0e1318;
+        }
+
+        canvas {
+            background: #0e1318;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+    </style>
+    <script>
+        async function fetchJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ': ' + r.status); return r.json(); }
+        function $(s, el = document) { return el.querySelector(s); }
+        function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+
+        function sparklineCooc(canvas, matrix) {
+            const ctx = canvas.getContext('2d');
+            const n = matrix.length;
+            if (!n) return;
+            const size = Math.min(canvas.width, canvas.height);
+            const cell = Math.floor(size / n);
+            let maxV = 0, minV = 1e9;
+            for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (i === j) continue; const v = matrix[i][j]; maxV = Math.max(maxV, v); minV = Math.min(minV, v); }
+            const norm = v => maxV > minV ? (v - minV) / (maxV - minV) : 0.5;
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    const t = norm(matrix[i][j]);
+                    const r = 30, g = Math.floor(60 + 80 * t), b = Math.floor(120 + 100 * t);
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(j * cell, i * cell, cell - 1, cell - 1);
+                }
+            }
+        }
+
+        function renderSummary(container, report) {
+            const { quantitative, clusterInterpretations, moralFramework } = report;
+            const header = el('div', 'card');
+            header.innerHTML = `<h2>Overall Report</h2>
+        <div class="muted">Generated: ${new Date(report.generatedAt).toLocaleString()}</div>
+        <div class="link-row" style="margin-top:8px;">
+          <a class="button" href="data/overall_report.json" target="_blank">Download overall_report.json</a>
+          <a class="button" href="../data/analysis/final_comprehensive_results/summary_statistics.csv" target="_blank">Summary statistics (CSV)</a>
+          <a class="button" href="../data/analysis/final_comprehensive_results/model_consistency.csv" target="_blank">Model consistency (CSV)</a>
+        </div>`;
+            container.appendChild(header);
+
+            // Top pairs & heatmaps
+            const top = el('div', 'card');
+            const stats = quantitative?.summary_statistics || [];
+            const bullets = stats.map(s => `<li><strong>${s.kind}</strong>: top pair ${s.top_pair} (${(s.max_normalized * 100).toFixed(1)}%)</li>`).join('');
+            top.innerHTML = `<h3>Top Co-occurrences</h3><ul>${bullets}</ul>
+            <div class="grid grid-2" style="margin-top:12px;">
+              <div>
+                <div class="muted">Decision (body) matrix</div>
+                <canvas id="coocBody" width="320" height="320"></canvas>
+              </div>
+              <div>
+                <div class="muted">Arguments in favor</div>
+                <canvas id="coocFavor" width="320" height="320"></canvas>
+              </div>
+              <div>
+                <div class="muted">Arguments against</div>
+                <canvas id="coocAgainst" width="320" height="320"></canvas>
+              </div>
+            </div>`;
+            container.appendChild(top);
+
+            // Draw heatmaps from report matrices
+            try {
+                sparklineCooc($("#coocBody"), report.cooccurrence?.body?.matrix || []);
+                sparklineCooc($("#coocFavor"), report.cooccurrence?.in_favor?.matrix || []);
+                sparklineCooc($("#coocAgainst"), report.cooccurrence?.against?.matrix || []);
+            } catch (e) { console.warn('Heatmap error', e); }
+
+            // Cluster interpretations quick view
+            const cl = el('div', 'card');
+            const parts = clusterInterpretations?.partnership_interpretations || [];
+            cl.innerHTML = `<h3>Model Alliances</h3>`;
+            parts.forEach(p => {
+                const item = el('div');
+                item.innerHTML = `<strong>${p.model1} &amp; ${p.model2}</strong> (${(p.cooccurrence_rate * 100).toFixed(1)}%)<br><span class="muted">${p.interpretation}</span>`;
+                cl.appendChild(item);
+            });
+            const outs = clusterInterpretations?.outlier_interpretations || [];
+            outs.forEach(o => {
+                const item = el('div');
+                item.innerHTML = `<strong>Outlier: ${o.model}</strong> (rate ${(o.outlier_rate * 100).toFixed(1)}%)<br><span class="muted">${o.interpretation}</span>`;
+                cl.appendChild(item);
+            });
+            container.appendChild(cl);
+
+            // Research question answers (moral)
+            const rq = el('div', 'grid grid-2');
+            (moralFramework?.comparative_research || []).forEach(r => {
+                const c = el('div', 'card');
+                const models = (r.models_analyzed || []).map(m => `<span class="chip">${m}</span>`).join('');
+                c.innerHTML = `<h3>${r.scenario_type.replaceAll('_', ' ').toUpperCase()}</h3>
+          <div class="muted" style="margin-bottom:6px;">${r.research_question}</div>
+          <div class="chips">${models}</div>
+          <pre style="margin-top:8px;">${(r.analysis?.reasoning || JSON.stringify(r.analysis)).slice(0, 800)}${(r.analysis?.reasoning || '').length > 800 ? '...' : ''}</pre>`;
+                rq.appendChild(c);
+            });
+            container.appendChild(rq);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = $('.container');
+            try {
+                const report = await fetchJSON('data/overall_report.json');
+                renderSummary(container, report);
+            } catch (e) {
+                container.appendChild(el('div', 'card', 'Failed to load overall report: ' + e.message));
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Models – Overall Report</h1>
+        <div class="muted">Consolidated view of clustering, alliances, and moral framework findings.</div>
+    </div>
+</body>
+
+</html>

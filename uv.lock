@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 
 [[package]]
@@ -847,6 +847,7 @@ dependencies = [
     { name = "openai" },
     { name = "orjson" },
     { name = "pydantic" },
+    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "sentence-transformers" },
     { name = "torch" },
@@ -865,6 +866,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.108.1" },
     { name = "orjson", specifier = ">=3.10" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pytest", specifier = ">=8.4.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "sentence-transformers", specifier = ">=3" },
     { name = "torch", specifier = ">=2.4" },

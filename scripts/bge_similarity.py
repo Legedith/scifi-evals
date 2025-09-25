@@ -16,7 +16,6 @@ from typing import List
 
 import numpy as np
 import typer
-from sentence_transformers import SentenceTransformer
 
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -40,6 +39,8 @@ def encode_sentences(
     normalize: bool = True,
 ) -> np.ndarray:
     """Encode sentences with BGE and return embeddings as np.ndarray."""
+    # Lazy import to avoid heavy dependency during test collection
+    from sentence_transformers import SentenceTransformer
     model = SentenceTransformer(model_name)
     return model.encode(
         sentences,

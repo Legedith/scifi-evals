@@ -31,7 +31,8 @@
                 <input id="sourceSearch" type="search" placeholder="Search source…" aria-label="Search by source">
 
                 <button id="resetBtn" class="secondary" type="button" aria-label="Reset filters">Reset</button>
-                <button id="compareBtn" class="primary" type="button" aria-label="Compare models">Compare Models</button>
+                <button id="compareBtn" class="primary" type="button" aria-label="Compare models">Compare
+                    Models</button>
             </div>
 
             <div class="controls-row right">
@@ -57,13 +58,18 @@
             </aside>
         </section>
 
-        
+
 
         <!-- Compare Modal -->
         <div id="compareModal" class="modal fullscreen" style="display: none;">
             <div class="modal-content fullscreen">
                 <div class="modal-header">
                     <h2>Compare Models</h2>
+                    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                        <a href="report.html" class="secondary"
+                            style="text-decoration:none; padding:6px 10px; border:1px solid #ddd; border-radius:6px;">See
+                            overall report</a>
+                    </div>
                     <div class="compare-controls">
                         <label for="compareSelect">Select dilemma:</label>
                         <select id="compareSelect">
