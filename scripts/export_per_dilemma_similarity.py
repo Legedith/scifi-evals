@@ -21,7 +21,7 @@ The mask denotes pairs where both models have non‑empty text for that kind.
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Optional
 from pathlib import Path
 import sqlite3
 
@@ -35,7 +35,6 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 # UI model order must match docs/app.js MODELS insertion order
 UI_MODELS: List[str] = [
-    "gpt-5-decisions",
     "gpt-5-nano",
     "grok-4-fast",
     "gemma-3-27b",
@@ -46,8 +45,7 @@ UI_MODELS: List[str] = [
 
 # Map UI model keys to DB model keys
 UI_TO_DB_MODEL: Dict[str, str] = {
-    "gpt-5-decisions": "gpt5-decisions",  # merged/DB uses this key
-    # others map 1:1
+    # UI → DB model keys (decisions exclude gpt5-decisions)
     "gpt-5-nano": "gpt-5-nano",
     "grok-4-fast": "grok-4-fast",
     "gemma-3-27b": "gemma-3-27b",
@@ -110,6 +108,81 @@ def fetch_latest_vectors(
     return {m: v for m, (_, v) in latest.items()}
 
 
+def compute_global_top_pcs(
+    conn: sqlite3.Connection, kind: str, top_m: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute mean and top-m principal components for given kind.
+
+    Returns (mean_vec, pcs) where pcs shape is (top_m, dim).
+    """
+    cur = conn.cursor()
+    rows = cur.execute(
+        "SELECT embedding FROM embeddings WHERE kind=? ORDER BY item_id, model",
+        (kind,),
+    ).fetchall()
+    if not rows:
+        raise RuntimeError(f"No embeddings found for kind={kind}")
+    dim = len(np.frombuffer(rows[0][0], dtype=np.float32))
+    X = np.empty((len(rows), dim), dtype=np.float32)
+    for i, (blob,) in enumerate(rows):
+        X[i] = np.frombuffer(blob, dtype=np.float32)
+    mu = X.mean(axis=0, dtype=np.float32)
+    Xc = X - mu
+    # Economy SVD for principal axes; components are rows of Vt
+    U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+    pcs = Vt[: top_m].astype(np.float32)
+    return mu.astype(np.float32), pcs
+
+
+def apply_all_but_top(vecs: np.ndarray, mu: np.ndarray, pcs: np.ndarray) -> np.ndarray:
+    """Subtract projections onto leading PCs and re-normalize row-wise.
+
+    vecs: (N, D) row-major embedding matrix.
+    mu: (D,) mean vector
+    pcs: (M, D) principal components
+    """
+    if vecs.size == 0:
+        return vecs
+    X = (vecs - mu).astype(np.float32, copy=False)
+    # Project and subtract: for each pc, X -= (X @ pc)[:,None] * pc
+    for k in range(pcs.shape[0]):
+        pc = pcs[k]
+        proj = X @ pc
+        X -= proj[:, None] * pc[None, :]
+    # Re-normalize rows to unit length when possible
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    X = X / norms
+    return X.astype(np.float32)
+
+
+def csls_matrix(sim: np.ndarray, k: int) -> np.ndarray:
+    """Compute CSLS-adjusted similarity from a symmetric similarity matrix.
+
+    sim: (N,N) with diagonal ~1
+    k: neighborhood size
+    """
+    N = sim.shape[0]
+    k_eff = max(1, min(k, N - 1))
+    r = np.zeros((N,), dtype=np.float32)
+    for i in range(N):
+        # exclude diagonal
+        row = np.array([sim[i, j] for j in range(N) if j != i], dtype=np.float32)
+        if row.size == 0:
+            r[i] = 0.0
+        else:
+            idx = np.argpartition(-row, k_eff - 1)[:k_eff]
+            r[i] = float(np.mean(row[idx]))
+    out = np.empty_like(sim)
+    for i in range(N):
+        for j in range(N):
+            if i == j:
+                out[i, j] = 1.0
+            else:
+                out[i, j] = 2.0 * sim[i, j] - r[i] - r[j]
+    return out.astype(np.float32)
+
+
 def to_upper_triangle(arr: np.ndarray) -> List[float]:
     """Flatten symmetric NxN matrix upper triangle (i<j, row‑major)."""
     n = arr.shape[0]
@@ -139,6 +212,13 @@ def main(
     out_path: Path = typer.Option(
         Path("docs/data/per_dilemma_similarity.json"), "--out", help="Output JSON path"
     ),
+    pc_remove_top: int = typer.Option(2, "--pc-remove-top", help="Remove top-M PCs per kind (ABTT)"),
+    csls_k: int = typer.Option(2, "--csls-k", help="Neighborhood size for CSLS"),
+    reranker_model: Optional[str] = typer.Option(
+        None,
+        "--reranker-model",
+        help="Optional cross-encoder model name for pairwise reranking (e.g., cross-encoder/ms-marco-MiniLM-L-6-v2)",
+    ),
 ) -> None:
     """Compute per‑dilemma per‑kind 7×7 cosine similarities and masks, write JSON."""
     # Load merged for masks
@@ -161,6 +241,23 @@ def main(
 
     items_payload: Dict[str, dict] = {}
 
+    # Precompute ABTT bases (mean + top PCs) per kind
+    abtt: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    if pc_remove_top > 0:
+        for kind in KINDS:
+            mu, pcs = compute_global_top_pcs(conn, kind, top_m=pc_remove_top)
+            abtt[kind] = (mu, pcs)
+
+    # Optional cross-encoder
+    ce_model = None
+    if reranker_model:
+        try:
+            from sentence_transformers import CrossEncoder  # type: ignore
+
+            ce_model = CrossEncoder(reranker_model, device="cuda" if _has_cuda() else None)
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError(f"Failed to load cross-encoder {reranker_model}: {e}")
+
     for iid in range(num_items):
         # For each kind, assemble vector list in UI order
         per_kind_tri: Dict[str, List[float]] = {}
@@ -168,40 +265,48 @@ def main(
 
         for kind in KINDS:
             latest_by_model = fetch_latest_vectors(conn, iid, kind)
-            # Build matrix in UI order; some models may be missing → use zeros
+            # Build matrix in UI order; some models may be missing → keep zeros
             vecs: List[np.ndarray] = []
             present: List[bool] = []
             for ui_key in UI_MODELS:
                 db_key = UI_TO_DB_MODEL[ui_key]
                 v = latest_by_model.get(db_key)
                 if v is None:
-                    # Fallback: zero vector (will yield 0 similarity with others)
                     present.append(False)
                     vecs.append(np.zeros((0,), dtype=np.float32))
                 else:
                     present.append(True)
                     vecs.append(v)
 
-            # Stack only if all dims equal; else coerce by detection
+            # Determine dim and stack
             dim = None
             for v in vecs:
                 if v.size > 0:
                     dim = int(v.size)
                     break
             if dim is None:
-                # No vectors at all; emit zeros
-                sim = np.eye(len(UI_MODELS), dtype=np.float32)
+                sim_abtt = np.eye(len(UI_MODELS), dtype=np.float32)
             else:
                 V = np.zeros((len(UI_MODELS), dim), dtype=np.float32)
                 for i, v in enumerate(vecs):
                     if v.size == dim:
                         V[i] = v
-                    # else leave zeros (non‑present)
-                # embeddings are normalized → cosine = dot
-                sim = (V @ V.T).astype(np.float32)
-                # Ensure diagonals exactly 1 for present rows
+                # Apply ABTT if configured
+                if pc_remove_top > 0 and kind in abtt:
+                    mu, pcs = abtt[kind]
+                    Vt = apply_all_but_top(V, mu, pcs)
+                else:
+                    # Ensure row-normalized
+                    norms = np.linalg.norm(V, axis=1, keepdims=True)
+                    norms[norms == 0] = 1.0
+                    Vt = (V / norms).astype(np.float32)
+                # Cosine on transformed vectors
+                sim_abtt = (Vt @ Vt.T).astype(np.float32)
                 for i, ok in enumerate(present):
-                    sim[i, i] = 1.0 if ok else 0.0
+                    sim_abtt[i, i] = 1.0 if ok else 0.0
+
+            # CSLS on ABTT matrix
+            sim_csls = csls_matrix(sim_abtt, k=csls_k)
 
             # Pairwise mask: both models have non‑empty text for this kind in raw data
             raw_mask_sq = np.zeros((len(UI_MODELS), len(UI_MODELS)), dtype=bool)
@@ -211,12 +316,59 @@ def main(
                         continue
                     raw_mask_sq[i, j] = availability[iid][ui_i][kind] and availability[iid][ui_j][kind]
 
-            per_kind_tri[kind] = to_upper_triangle(sim)
+            # Base cosine (ABTT) tri + CSLS tri
+            per_kind_tri[kind] = {"tri": to_upper_triangle(sim_abtt), "tri_csls": to_upper_triangle(sim_csls)}
             per_kind_mask_tri[kind] = mask_upper_triangle(raw_mask_sq)
 
-        items_payload[str(iid)] = {
-            k: {"tri": per_kind_tri[k], "mask": per_kind_mask_tri[k]} for k in KINDS
-        }
+        # Optional cross-encoder rerank on decision/consideration texts
+        if ce_model is not None:
+            # Build texts by model/kind
+            decs = merged[iid].get("decisions") or {}
+            texts: Dict[str, Dict[str, str]] = {}
+            for ui_key in UI_MODELS:
+                db_key = UI_TO_DB_MODEL[ui_key]
+                d = decs.get(db_key) or {}
+                cons = d.get("considerations") or {}
+                texts[ui_key] = {
+                    "body": f"{d.get('decision') or ''}\n\n{d.get('reasoning') or ''}".strip() or "",
+                    "in_favor": "\n".join([x.strip() for x in (cons.get("in_favor") or []) if isinstance(x, str)]).strip(),
+                    "against": "\n".join([x.strip() for x in (cons.get("against") or []) if isinstance(x, str)]).strip(),
+                }
+            for kind in KINDS:
+                pairs: List[Tuple[str, str]] = []
+                idx_pairs: List[Tuple[int, int]] = []
+                for a in range(len(UI_MODELS) - 1):
+                    for b in range(a + 1, len(UI_MODELS)):
+                        ua, ub = UI_MODELS[a], UI_MODELS[b]
+                        ta, tb = texts[ua][kind], texts[ub][kind]
+                        if ta and tb:
+                            pairs.append((ta, tb))
+                        else:
+                            pairs.append(("", ""))  # placeholder; will mark NaN
+                        idx_pairs.append((a, b))
+                if pairs:
+                    # Predict in small batch; CrossEncoder expects list of (s1, s2)
+                    scores = ce_model.predict(pairs)  # type: ignore[assignment]
+                    # Fill tri_ce, mark pairs with missing text as NaN to be ignored by UI
+                    tri_ce: List[float] = []
+                    for (a, b), s, (ua, ub) in zip(idx_pairs, scores, idx_pairs):
+                        ta, tb = pairs[idx_pairs.index((a, b))]
+                        if not ta or not tb:
+                            tri_ce.append(float("nan"))
+                        else:
+                            tri_ce.append(float(s))
+                    # Attach
+                    per_kind_tri[kind]["tri_ce"] = tri_ce
+
+        # Flatten per kind payload preserving mask and multiple matrices
+        item_entry: Dict[str, dict] = {}
+        for k in KINDS:
+            matrices = per_kind_tri[k]
+            item_entry[k] = {"mask": per_kind_mask_tri[k]}
+            # Merge all matrices into entry
+            for key, tri_vals in matrices.items():
+                item_entry[k][key] = tri_vals
+        items_payload[str(iid)] = item_entry
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_obj = {"models": UI_MODELS, "kinds": list(KINDS), "items": items_payload}

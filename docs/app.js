@@ -1,16 +1,11 @@
 (function initializeApp() {
     // Available models configuration
     const MODELS = {
-        'gpt-5-decisions': {
-            name: 'GPT-5 Decisions (Short)',
-            file: 'data/enhanced/dilemmas_with_gpt5_decisions.json',
-            provider: 'OpenAI',
-            isDefault: true
-        },
         'gpt-5-nano': {
             name: 'GPT-5 Nano',
             file: 'data/responses/gpt-5-nano_responses.json',
-            provider: 'OpenAI'
+            provider: 'OpenAI',
+            isDefault: true
         },
         'grok-4-fast': {
             name: 'Grok 4 Fast',
@@ -76,7 +71,8 @@
         kind: 'body',
         threshold: 0.75,
         heatmap: false,
-        weights: { body: 0.6, in_favor: 0.2, against: 0.2 }
+        weights: { body: 0.6, in_favor: 0.2, against: 0.2 },
+        _autoAppliedForIndex: null
     };
 
     /** Utilities */
@@ -592,7 +588,7 @@
 
         const simplifiedQ = document.createElement('div');
         simplifiedQ.className = 'question simplified';
-        simplifiedQ.innerHTML = '<strong>Simplified:</strong> ' + (dilemma.question || '');
+        simplifiedQ.innerHTML = '<strong>Dilemma:</strong> ' + (dilemma.question || '');
         questionWrap.appendChild(simplifiedQ);
 
         // Try to pull enhanced version from enhanced_dilemmas.json if loaded/cached
@@ -638,7 +634,7 @@
             kindSelect.id = 'simKind';
             ;['body', 'in_favor', 'against', 'overall'].forEach(k => {
                 const opt = document.createElement('option');
-                opt.value = k; opt.textContent = k.replace('_', ' ');
+                opt.value = k; opt.textContent = (k === 'body' ? 'decision' : k.replace('_', ' '));
                 if (k === simState.kind) opt.selected = true;
                 kindSelect.appendChild(opt);
             });
@@ -646,10 +642,11 @@
 
             const thWrap = document.createElement('div'); thWrap.style.display = 'inline-flex'; thWrap.style.gap = '6px';
             const thLabel = document.createElement('label'); thLabel.textContent = 'Threshold';
-            const thInput = document.createElement('input'); thInput.type = 'range'; thInput.min = '0.60'; thInput.max = '0.90'; thInput.step = '0.01'; thInput.value = String(simState.threshold);
+            const thInput = document.createElement('input'); thInput.type = 'range'; thInput.min = '0.00'; thInput.max = '1.00'; thInput.step = '0.01'; thInput.value = String(simState.threshold);
             const thVal = document.createElement('span'); thVal.textContent = Number(simState.threshold).toFixed(2);
             thInput.addEventListener('input', () => { simState.threshold = parseFloat(thInput.value); thVal.textContent = simState.threshold.toFixed(2); renderComparison(String(currentCompareIndex)); });
-            thWrap.appendChild(thLabel); thWrap.appendChild(thInput); thWrap.appendChild(thVal);
+            const autoBtn = document.createElement('button'); autoBtn.textContent = 'Auto'; autoBtn.className = 'secondary'; autoBtn.style.marginLeft = '6px';
+            thWrap.appendChild(thLabel); thWrap.appendChild(thInput); thWrap.appendChild(thVal); thWrap.appendChild(autoBtn);
 
             const heatWrap = document.createElement('label'); heatWrap.style.display = 'inline-flex'; heatWrap.style.gap = '6px';
             const heatCb = document.createElement('input'); heatCb.type = 'checkbox'; heatCb.checked = !!simState.heatmap; heatCb.id = 'simHeatmapToggle';
@@ -661,6 +658,7 @@
             controls.appendChild(kindSelect);
             controls.appendChild(thWrap);
             controls.appendChild(heatWrap);
+            const stats = document.createElement('span'); stats.className = 'muted'; stats.style.marginLeft = '8px'; stats.id = 'clusterStats'; controls.appendChild(stats);
             compareContent.appendChild(controls);
 
             // Reconstruct similarity matrix and cluster ordering
@@ -688,15 +686,95 @@
                     for (let i = 0; i < N; i++) { maskSq[i][i] = true; for (let j = i + 1; j < N; j++) { const m = mk[0][i][j] || mk[1][i][j] || mk[2][i][j]; maskSq[i][j] = m; maskSq[j][i] = m; } }
                 } else { maskSq = triMaskToSquare(itemObj[kindKey].mask); }
                 const th = simState.threshold;
+                // Visual normalization domain from in-mask off-diagonal values (p10..p90)
+                const vals = [];
+                for (let i = 0; i < N; i++) { for (let j = i + 1; j < N; j++) { if (maskSq[i][j]) vals.push(simMatrix[i][j]); } }
+                const sorted = vals.slice().sort((a, b) => a - b);
+                const pct = (arr, p) => { if (arr.length === 0) return NaN; const k = Math.floor((arr.length - 1) * p); return arr[k]; };
+                const vLo = pct(sorted, 0.10); const vHi = pct(sorted, 0.90);
+                const mapVal = (v) => {
+                    if (!(vHi > vLo + 1e-6)) return Math.max(0, Math.min(1, (v - 0.6) / 0.4));
+                    return Math.max(0, Math.min(1, (v - vLo) / (vHi - vLo)));
+                };
+                const thNorm = mapVal(th);
+                // Build mutual k-NN graph at current threshold to avoid a single giant component
+                const MNN_K = 2;
+                const top = Array.from({ length: N }, () => new Set());
+                for (let i = 0; i < N; i++) {
+                    const cand = [];
+                    for (let j = 0; j < N; j++) {
+                        if (i === j) continue;
+                        if (!maskSq[i][j]) continue;
+                        const v = simMatrix[i][j];
+                        if (v >= th) cand.push([j, v]);
+                    }
+                    cand.sort((a, b) => b[1] - a[1]);
+                    for (let t = 0; t < Math.min(MNN_K, cand.length); t++) top[i].add(cand[t][0]);
+                }
                 const parent = new Array(N).fill(0).map((_, i) => i);
                 const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
                 const unite = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[b] = a; };
-                for (let i = 0; i < N; i++) { for (let j = i + 1; j < N; j++) { if (maskSq[i][j] && simMatrix[i][j] >= th) unite(i, j); } }
+                const links = [];
+                for (let i = 0; i < N; i++) {
+                    for (let j = i + 1; j < N; j++) {
+                        if (!maskSq[i][j]) continue;
+                        const v = simMatrix[i][j];
+                        if (v >= th && top[i].has(j) && top[j].has(i)) { unite(i, j); links.push({ i, j, w: v }); }
+                    }
+                }
                 const groups = new Map(); for (let i = 0; i < N; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
                 const clusters = Array.from(groups.values()).sort((a, b) => b.length - a.length);
                 function sortWithinCluster(arr) { return arr.slice().sort((i, j) => { const si = arr.reduce((acc, k) => acc + (k === i ? 0 : simMatrix[i][k]), 0); const sj = arr.reduce((acc, k) => acc + (k === j ? 0 : simMatrix[j][k]), 0); return sj - si; }); }
                 const orderIdx = []; clusters.forEach(c => orderIdx.push(...sortWithinCluster(c)));
                 orderedModelKeys = orderIdx.map(i => uiModels[i]);
+                const statsEl = document.getElementById('clusterStats'); if (statsEl) statsEl.textContent = `Clusters: ${clusters.length}`;
+
+                // Auto-threshold finder: highest t with at least 2 clusters of size >= 2
+                function findAutoThreshold() {
+                    const vals = [];
+                    for (let i = 0; i < N; i++) { for (let j = i + 1; j < N; j++) { if (maskSq[i][j]) vals.push(simMatrix[i][j]); } }
+                    const uniq = Array.from(new Set(vals)).sort((a, b) => b - a);
+                    const MNN_K = 2;
+                    // helper to cluster at t
+                    function clustersAt(t) {
+                        const top = Array.from({ length: N }, () => new Set());
+                        for (let i = 0; i < N; i++) {
+                            const cand = [];
+                            for (let j = 0; j < N; j++) { if (i === j) continue; if (!maskSq[i][j]) continue; const v = simMatrix[i][j]; if (v >= t) cand.push([j, v]); }
+                            cand.sort((a, b) => b[1] - a[1]);
+                            for (let m = 0; m < Math.min(MNN_K, cand.length); m++) top[i].add(cand[m][0]);
+                        }
+                        const parent = new Array(N).fill(0).map((_, i) => i);
+                        const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+                        const unite = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[b] = a; };
+                        for (let i = 0; i < N; i++) { for (let j = i + 1; j < N; j++) { if (maskSq[i][j] && simMatrix[i][j] >= t && top[i].has(j) && top[j].has(i)) unite(i, j); } }
+                        const groups = new Map(); for (let i = 0; i < N; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
+                        return Array.from(groups.values());
+                    }
+                    for (const t of uniq) {
+                        const cls = clustersAt(t);
+                        let good = 0; for (const c of cls) if (c.length >= 2) good++;
+                        if (good >= 2) return t;
+                    }
+                    // fallback: median
+                    if (uniq.length) return uniq[Math.floor(uniq.length / 2)];
+                    return simState.threshold;
+                }
+                autoBtn.onclick = () => { simState.threshold = findAutoThreshold(); renderComparison(String(currentCompareIndex)); };
+
+                // Auto-apply when opening a dilemma (run once per index)
+                if (simState._autoAppliedForIndex !== index) {
+                    const autoT = findAutoThreshold();
+                    // apply and re-render only if threshold meaningfully changes (> 0.005)
+                    if (Math.abs((autoT ?? simState.threshold) - simState.threshold) > 0.005) {
+                        simState._autoAppliedForIndex = index;
+                        simState.threshold = autoT;
+                        renderComparison(String(index));
+                        return; // avoid duplicate rendering below
+                    } else {
+                        simState._autoAppliedForIndex = index;
+                    }
+                }
                 // Visuals side-by-side: graph (left) and heatmap (right)
                 const visWrap = document.createElement('div');
                 visWrap.style.display = 'flex'; visWrap.style.gap = '12px'; visWrap.style.alignItems = 'flex-start';
@@ -713,8 +791,6 @@
                 const nodes = [];
                 const cx = W * 0.5, cy = H * 0.52; const R = Math.min(W, H) * 0.35;
                 for (let i = 0; i < N; i++) { const ang = (i / N) * Math.PI * 2 - Math.PI / 2; nodes.push({ x: cx + R * Math.cos(ang), y: cy + R * Math.sin(ang), vx: 0, vy: 0 }); }
-                const links = [];
-                for (let i = 0; i < N; i++) { for (let j = i + 1; j < N; j++) { if (maskSq[i][j] && simMatrix[i][j] >= th) links.push({ i, j, w: simMatrix[i][j] }); } }
 
                 // Tooltip
                 const tip = document.createElement('div');
@@ -730,7 +806,8 @@
                     // edges
                     for (const { i, j, w } of links) {
                         const a = nodes[i], b = nodes[j];
-                        const alpha = Math.min(1, Math.max(0.15, (w - th) / Math.max(0.001, 1.0 - th)));
+                        const wN = mapVal(w);
+                        const alpha = Math.min(1, Math.max(0.15, (wN - thNorm) / Math.max(0.001, 1.0 - thNorm)));
                         ctx.strokeStyle = `rgba(60, 120, 200, ${alpha.toFixed(3)})`;
                         ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
                     }
@@ -750,7 +827,7 @@
                 function step() {
                     if (!running) return;
                     // forces
-                    const kRep = 1200, kSpring = 0.02, kCenter = 0.005, damping = 0.9;
+                    const kRep = 1200, kSpring = 0.02, kCenter = 0.008, damping = 0.9;
                     for (let i = 0; i < N; i++) {
                         let ax = 0, ay = 0;
                         // repulsion
@@ -759,7 +836,8 @@
                         for (const { i: a, j: b, w } of links) {
                             const other = (a === i) ? b : (b === i) ? a : -1; if (other === -1) continue;
                             const dx = nodes[other].x - nodes[i].x, dy = nodes[other].y - nodes[i].y; const dist = Math.sqrt(dx * dx + dy * dy) + 1e-6; const nx = dx / dist, ny = dy / dist;
-                            const L0 = 140 * (1 - 0.5 * (w - th) / Math.max(0.001, 1.0 - th));
+                            const wN = mapVal(w);
+                            const L0 = 140 * (1 - 0.5 * (wN - thNorm) / Math.max(0.001, 1.0 - thNorm));
                             const f = kSpring * (dist - L0);
                             ax += nx * f; ay += ny * f;
                         }
@@ -805,7 +883,7 @@
                         const rowLabel = document.createElement('th'); rowLabel.style.textAlign = 'right'; rowLabel.style.padding = '0 4px'; rowLabel.textContent = uiModels[i]; tr.appendChild(rowLabel);
                         for (let j = 0; j < N; j++) {
                             const td = document.createElement('td'); td.style.width = '14px'; td.style.height = '14px'; td.style.padding = '0'; td.style.border = '1px solid #eee';
-                            const v = simMatrix[i][j]; const c = Math.max(0, Math.min(255, Math.round((v - 0.6) / 0.4 * 255)));
+                            const v = simMatrix[i][j]; const c = Math.max(0, Math.min(255, Math.round(mapVal(v) * 255)));
                             td.style.backgroundColor = `rgb(${255 - c},${255 - Math.floor(c * 0.5)},255)`; td.title = `${uiModels[i]} vs ${uiModels[j]}: ${v.toFixed(2)}`;
                             tr.appendChild(td);
                         }
