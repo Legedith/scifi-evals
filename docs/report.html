@@ -324,42 +324,7 @@
         }
 
         function renderSummary(container, report) {
-            const { quantitative, clusterInterpretations, moralFramework } = report;
-            const header = el('div', 'card');
-            header.innerHTML = `<h2>Overall Report</h2>
-        <div class="muted">Generated: ${new Date(report.generatedAt).toLocaleString()}</div>
-        <div class="link-row" style="margin-top:8px; justify-content:center;">
-          <a class="button" href="data/overall_report.json" target="_blank">Download overall_report.json</a>
-        </div>`;
-            container.appendChild(header);
-
-            // Top pairs & heatmaps
-            const top = el('div', 'card');
-            const stats = quantitative?.summary_statistics || [];
-            const bullets = stats.map(s => `<li><strong>${s.kind}</strong>: top pair ${s.top_pair} (${(s.max_normalized * 100).toFixed(1)}%)</li>`).join('');
-            top.innerHTML = `<h3>Top Co-occurrences</h3><ul>${bullets}</ul>
-            <div class="grid grid-2" style="margin-top:12px;">
-              <div>
-                <div class="muted">Decision (body) matrix</div>
-                <canvas id="coocBody" width="320" height="320"></canvas>
-              </div>
-              <div>
-                <div class="muted">Arguments in favor</div>
-                <canvas id="coocFavor" width="320" height="320"></canvas>
-              </div>
-              <div>
-                <div class="muted">Arguments against</div>
-                <canvas id="coocAgainst" width="320" height="320"></canvas>
-              </div>
-            </div>`;
-            container.appendChild(top);
-
-            // Draw heatmaps from report matrices
-            try {
-                sparklineCooc($("#coocBody"), report.cooccurrence?.body?.matrix || []);
-                sparklineCooc($("#coocFavor"), report.cooccurrence?.in_favor?.matrix || []);
-                sparklineCooc($("#coocAgainst"), report.cooccurrence?.against?.matrix || []);
-            } catch (e) { console.warn('Heatmap error', e); }
+            const { clusterInterpretations } = report;
 
             // Cluster interpretations quick view (cards + spacing)
             const cl = el('div', 'card');
@@ -390,18 +355,7 @@
             }
             container.appendChild(cl);
 
-            // Research question answers (moral)
-            const rq = el('div', 'grid grid-2');
-            (moralFramework?.comparative_research || []).forEach(r => {
-                const c = el('div', 'card');
-                const models = (r.models_analyzed || []).map(m => `<span class="chip">${m}</span>`).join('');
-                c.innerHTML = `<h3>${r.scenario_type.replaceAll('_', ' ').toUpperCase()}</h3>
-          <div class="muted" style="margin-bottom:6px;">${r.research_question}</div>
-          <div class="chips">${models}</div>
-          <pre style="margin-top:8px;">${(r.analysis?.reasoning || JSON.stringify(r.analysis)).slice(0, 800)}${(r.analysis?.reasoning || '').length > 800 ? '...' : ''}</pre>`;
-                rq.appendChild(c);
-            });
-            container.appendChild(rq);
+            // (Removed legacy moral framework cards)
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -861,11 +815,48 @@
             }
 
             // Helper: heatmap for pairwise mean similarities
-            function drawHeatmap(canvas, matrix) {
-                const ctx = canvas.getContext('2d'); const n = matrix.length; if (!n) return; const size = Math.min(canvas.width, canvas.height); const cell = Math.floor(size / n);
+            function drawHeatmap(canvas, matrix, labels = []) {
+                const ctx = canvas.getContext('2d'); const n = matrix.length; if (!n) return;
+                const leftPad = Math.min(90, Math.max(40, Math.floor(canvas.width * 0.22)));
+                const topPad = 28; const legendPad = 8; const legendH = 12;
+                const size = Math.min(canvas.width - leftPad, canvas.height - (topPad + legendPad + legendH + 6));
+                const cell = Math.max(10, Math.floor(size / n));
+                const W = leftPad + cell * n + 1; const H = topPad + cell * n + 1 + legendPad + legendH + 6;
+                canvas.width = Math.max(canvas.width, W); canvas.height = Math.max(canvas.height, H);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 let maxV = 0, minV = 1; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j) { const v = matrix[i][j]; maxV = Math.max(maxV, v); minV = Math.min(minV, v); }
-                const norm = v => maxV > minV ? (v - minV) / (maxV - minV) : 0.5; ctx.clearRect(0, 0, canvas.width, canvas.height);
-                for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) { const t = norm(matrix[i][j]); const r = 30, g = Math.floor(60 + 100 * t), b = Math.floor(140 + 80 * t); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(j * cell, i * cell, cell - 1, cell - 1); } }
+                const norm = v => maxV > minV ? (v - minV) / (maxV - minV) : 0.5;
+                // grid
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        const t = norm(matrix[i][j]); const r = 30, g = Math.floor(60 + 100 * t), b = Math.floor(140 + 80 * t);
+                        ctx.fillStyle = `rgb(${r},${g},${b})`;
+                        ctx.fillRect(leftPad + j * cell, topPad + i * cell, cell - 1, cell - 1);
+                    }
+                }
+                // labels: rows (left)
+                ctx.fillStyle = '#a7b4c2'; ctx.font = '10px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+                ctx.textAlign = 'right';
+                for (let i = 0; i < n; i++) {
+                    const y = topPad + i * cell + Math.floor(cell / 2);
+                    const name = (labels[i] || String(i));
+                    ctx.fillText(name, leftPad - 6, y);
+                }
+                // labels: columns (top, horizontal)
+                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                for (let j = 0; j < n; j++) {
+                    const x = leftPad + j * cell + Math.floor(cell / 2);
+                    const name = (labels[j] || String(j));
+                    ctx.fillText(name, x, topPad - 4);
+                }
+                // legend (bottom gradient)
+                const lx = leftPad, ly = topPad + cell * n + legendPad, lw = cell * n, lh = legendH;
+                const grd = ctx.createLinearGradient(lx, ly, lx + lw, ly);
+                for (let t = 0; t <= 1.0001; t += 0.1) { const r = 30, g = Math.floor(60 + 100 * t), b = Math.floor(140 + 80 * t); grd.addColorStop(t, `rgb(${r},${g},${b})`); }
+                ctx.fillStyle = grd; ctx.fillRect(lx, ly, lw, lh); ctx.strokeStyle = '#334'; ctx.strokeRect(lx, ly, lw, lh);
+                ctx.fillStyle = '#a7b4c2'; ctx.font = '10px system-ui, sans-serif'; ctx.textBaseline = 'top';
+                ctx.textAlign = 'left'; ctx.fillText(minV.toFixed(2), lx, ly + lh + 2);
+                ctx.textAlign = 'right'; ctx.fillText(maxV.toFixed(2), lx + lw, ly + lh + 2);
             }
 
             // Compute pairwise means from per_dilemma_similarity
@@ -895,7 +886,7 @@
                     const grid = el('div', 'grid grid-2');
                     const mk = [['Decision (body)', 'body'], ['In Favor', 'in_favor'], ['Against', 'against']];
                     mk.forEach(([label, k]) => {
-                        const wrap = el('div'); const title = el('div', 'muted centered', label); const c = document.createElement('canvas'); c.width = 320; c.height = 320; wrap.appendChild(title); wrap.appendChild(c); grid.appendChild(wrap); setTimeout(() => drawHeatmap(c, means[k]), 0);
+                        const wrap = el('div'); const title = el('div', 'muted centered', label); const c = document.createElement('canvas'); c.width = 360; c.height = 360; wrap.appendChild(title); wrap.appendChild(c); grid.appendChild(wrap); setTimeout(() => drawHeatmap(c, means[k], models), 0);
                     });
                     card.appendChild(grid);
                     const note = el('div', 'subtle small centered', 'Darker cells indicate higher agreement between models'); card.appendChild(note);
@@ -980,13 +971,14 @@
 
             // 4) Topic/author distribution from formatted dilemmas
             if (Array.isArray(formatted) && formatted.length) {
-                const byAuthor = new Map(); formatted.forEach((d, i) => { const a = (d.author || ''); const obj = byAuthor.get(a) || { count: 0, sumIdx: 0 }; obj.count++; obj.sumIdx += (i + 1); byAuthor.set(a, obj); });
-                const entries = Array.from(byAuthor.entries()).map(([a, v]) => ({ author: a || 'Unknown', num_questions: v.count, avg_question_id: v.sumIdx / v.count })).sort((x, y) => y.num_questions - x.num_questions);
+                const byAuthor = new Map(); formatted.forEach((d) => { const a = (d.author || ''); const obj = byAuthor.get(a) || { count: 0 }; obj.count++; byAuthor.set(a, obj); });
+                const total = Array.from(byAuthor.values()).reduce((acc, v) => acc + v.count, 0) || 1;
+                const entries = Array.from(byAuthor.entries()).map(([a, v]) => ({ author: a || 'Unknown', num_questions: v.count, share: (v.count / total) * 100 })).sort((x, y) => y.num_questions - x.num_questions);
                 const labels = entries.map(e => e.author); const values = entries.map(e => e.num_questions);
                 const card = el('div', 'card'); card.innerHTML = '<h3 class="centered">Topic Alliances by Author</h3><div class="subtle centered">Distribution of dilemmas by author</div>';
                 const c = document.createElement('canvas'); c.width = 820; c.height = 360; card.appendChild(c); setTimeout(() => drawBars(c, labels, values), 0);
-                const tableWrap = el('div', 'table-wrap'); const table = el('table', 'data-table'); const thead = document.createElement('thead'); const htr = document.createElement('tr');['author', 'num_questions', 'avg_question_id'].forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
-                const tbody = document.createElement('tbody'); entries.forEach(r => { const tr = document.createElement('tr');['author', 'num_questions', 'avg_question_id'].forEach(h => { const td = document.createElement('td'); const v = r[h]; td.textContent = typeof v === 'number' ? (h === 'avg_question_id' ? v.toFixed(2) : v.toString()) : v; tr.appendChild(td); }); tbody.appendChild(tr); }); table.appendChild(tbody); tableWrap.appendChild(table); card.appendChild(tableWrap);
+                const tableWrap = el('div', 'table-wrap'); const table = el('table', 'data-table'); const thead = document.createElement('thead'); const htr = document.createElement('tr');['author', 'num_questions', 'share_%'].forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+                const tbody = document.createElement('tbody'); entries.forEach(r => { const tr = document.createElement('tr');['author', 'num_questions', 'share'].forEach(h => { const td = document.createElement('td'); const v = r[h]; td.textContent = typeof v === 'number' ? (h === 'share' ? v.toFixed(1) : v.toString()) : v; tr.appendChild(td); }); tbody.appendChild(tr); }); table.appendChild(tbody); tableWrap.appendChild(table); card.appendChild(tableWrap);
                 container.appendChild(card);
             }
 
